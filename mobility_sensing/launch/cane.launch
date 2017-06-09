@@ -27,4 +27,6 @@
       {id: 3, size: 0.055}]
     </rosparam>
   </node>
+
+  <node pkg="mobility_sensing" type="cane_geometry.py" name="cane_geometry" output="screen" />
 </launch>
