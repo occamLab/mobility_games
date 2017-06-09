@@ -1,4 +1,4 @@
-#!/usr/bin/evn python
+#!/usr/bin/env python
 
 import rospy
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point
