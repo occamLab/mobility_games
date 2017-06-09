@@ -6,13 +6,23 @@ from tf.transformations import quaternion_matrix
 
 
 class CaneGeometry:
+    """ CaneGeometry defines a ros node that uses apriltags to define
+    the geometry of a white cane.
 
-    def __init__(self):
+    Parameters
+    ----------
+    tag_distance: float
+        the distance in inches along the cane shaft, between tag and tip
+    """
+
+    def __init__(self, tag_distance):
         rospy.init_node('cane_geometry')
         rospy.Subscriber('/fisheye_undistorted/tag_detections_pose',
                          PoseArray, self.republish_cane_tip)
 
         self.pub = rospy.Publisher('/cane_tip', PoseStamped, queue_size=1)
+
+        self.tag_distance = tag_distance
 
     def republish_cane_tip(self, tag_msg):
 
@@ -27,10 +37,8 @@ class CaneGeometry:
             # normal vector of tag is the z axis of the tag orientation
             R = quaternion_matrix([quat.x, quat.y, quat.z, quat.w])
 
-            # TODO: parameterize length between tag and cane tip
-            length_in = 29.5
             in_to_m = 0.0254
-            length_m = length_in * in_to_m
+            length_m = self.tag_distance * in_to_m
 
             # FIXME: Tip location calc is approximate.
             # Tag is not concentric with cane.
@@ -57,5 +65,5 @@ class CaneGeometry:
 
 
 if __name__ == "__main__":
-    cane = CaneGeometry()
+    cane = CaneGeometry(tag_distance=29.5)
     cane.run()
