@@ -7,7 +7,7 @@ def song_sample_1():
     track_0 = silence(8)
     track_1 = np.asarray(["C3 . . . G3 . . .".split()]).T
     track_2 = np.asarray(["Eb4 . F4 Eb4 D4 . F4 Eb4".split()]).T
-    track_3 = np.asarray(["C5 G5 C6 G5 D5 G5 D6 ".split()]).T
+    track_3 = np.asarray(["C5 G5 C6 G5 D5 G5 D6 G5".split()]).T
     return [track_0, track_1, track_2, track_3]
 
 def mario():

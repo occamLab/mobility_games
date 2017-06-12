@@ -84,6 +84,7 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
         sys.stdout.flush()
         nc += 1.0
     sys.stdout.write("\n")
+    print("Sounds generated.")
     return np.asarray(sounds)
 
 def synth(freq, synth = sin, fade = 0.4):
