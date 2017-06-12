@@ -60,6 +60,7 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     master_array = np.concatenate(list_of_tracks, 1)
     print("Interpreting chords.")
 
+    #   Makes a loading bar in terminal because this can take a while
     length = 20
     sys.stdout.write("[%s]" % ("-" * length))
     sys.stdout.flush()
@@ -71,12 +72,14 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     for chord in master_array:
         i = 0
         chord_list = []
+        #   converts from symbolic array to pylazy sound objects
         for note in chord:
             chord_list.append(pns([[note]], quarter_time, amp = amps[i])[0])
             i += 1
         sounds.append(chord_list)
         old_p = percent_done
         percent_done = round((nc/len(master_array) * 100), 1)
+        # Add to loading bar every time perent done increases significantly
         sys.stdout.write("#" * (int(percent_done/100*length) - int(old_p/100*length)))
         sys.stdout.flush()
         nc += 1.0
@@ -125,8 +128,10 @@ def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
         a = []
         for note in chord:
             if note.lower() == "r" or note == ".":
+                #   Don't render audio if the current note is a rest
                 pass
             else:
+                #   Added extra time at the end of each note to avoid popping noise
                 a.append(synth(freq(note)).append(zeros(s*t*8)))
         sample = zeros(int(t*s*n)).append(sum(a) * 0.05 * amp)
         n += 1
@@ -137,6 +142,21 @@ def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
     return sound, delay_time
 
 def test_song(list_of_tracks, tempo, amps = [], start_num = 1, increase = 1):
+    """ Plays a numpy array as a song.
+
+    Two parameters:
+    list_of_tracks - list of numpy arrays for each track of a song (see formats in song_library.py)
+    tempo - tempo in beats per minute
+
+    Three optional parameters:
+    amps - list of float amplitudes to play song at. Should be a list of length equal to
+            the number of tracks, where full volume is 1.0
+    start_num - number of tracks to start out playing simultaneously (default one).
+    increase - number of tracks to add every loop (default one). The song will continue to loop
+            even after all tracks have been added.
+
+    Tracks will be added in the order they appear in list_of_tracks. """
+
     if amps == []:
         amps = len(list_of_tracks[0]) * [1]
     quarter = 60.0/tempo
