@@ -26,10 +26,10 @@ class AudioFeedback(object):
         self.yaw = None
         self.start = False
         self.player = AudioIO(True)
-        self.tracks = song_sample_1()
-        self.quarter_time = 0.5
-        self.track_length = len(track_1)
-        self.track_time = pns(track_1)[1]
+        self.tracks = final_countdown()
+        self.quarter_time = 0.25
+        self.track_length = len(self.tracks[0])
+        self.track_time = self.quarter_time * self.track_length
         self.music = arrays_to_sound(self.tracks, self.quarter_time)
 
     def process_pose(self, msg):    #   Updates position of Tango
@@ -54,17 +54,25 @@ class AudioFeedback(object):
                 self.x_init = self.x
                 self.y_init = self.y
                 self.start = True
-            if self.x and self.start and rospy.Time.now() - last_chord >= rospy.duration(self.quarter_time):
+                print("Connection established.")
+            if self.x and self.start and rospy.Time.now() - last_chord >= rospy.Duration(self.quarter_time):
                 dist = math.sqrt((self.x - self.x_init)**2 + (self.y - self.y_init)**2)
                 #   Play variable numbers of tracks depending on distance from
                 #   initial position.
                 if dist < 1:
-                    chord = sum(self.music[beat - 1, :3])
+                    chord = sum(self.music[beat - 1, :])
                 elif dist < 2:
-                    chord = sum(self.music[beat - 1, :2])
+                    chord = sum(self.music[beat - 1, :-1])
                 elif dist < 3:
-                    chord = sum(self.music[beat - 1, :1])
+                    chord = sum(self.music[beat - 1, :-2])
+                elif dist < 4:
+                    chord = sum(self.music[beat - 1, :-3])
+                elif dist < 5:
+                    chord = sum(self.music[beat - 1, :-4])
+                else:
+                    chord = sum(self.music[beat - 1, :-5])
                 play(chord, self.player)
+                print(chord)
                 beat += 1
                 if beat > self.track_length:
                     beat = 1

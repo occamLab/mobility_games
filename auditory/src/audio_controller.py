@@ -1,6 +1,10 @@
 from audiolazy import *
+from song_library import *
+from random_song import *
 import numpy as np
+import rospy
 import time
+import sys
 
 def freq(name):
     """ Generates frequency based on note name.
@@ -24,7 +28,7 @@ def freq(name):
         return freqs[letter] * (2 ** octv)
 
     except:
-        print "That is not a note."
+        print("That is not a note.")
 
 def delay(sig, delaynum, delayinterval, startamp):
   """ Simple feedforward delay effect """
@@ -43,28 +47,56 @@ def delay(sig, delaynum, delayinterval, startamp):
   # or something alike (e.g. ensuring that duration outside of this
 # function), helping you to avoid an endless signal.
 
-def arrays_to_sound(list_of_tracks, quarter_time):
+def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     """ Takes in a list of numpy arrays for audio tracks and
     the time of a quarter note, in seconds.
 
     Returns a list of sound objects corresponding to the tracks."""
+    print("Converting numpy array to audio.")
+    if amps == []:
+        amps = len(list_of_tracks[0]) * [1]
     i = 0
     sounds = []
+    print("Concatenating matrices.")
     master_array = np.concatenate(list_of_tracks, 1)
+    print("Interpreting chords.")
+
+    length = 20
+    sys.stdout.write("[%s]" % ("-" * length))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (length+1))
+
+    nc = 0.0
+    percent_done = 0
+    sys.stdout.write("#")
     for chord in master_array:
+        i = 0
         chord_list = []
         for note in chord:
-            chord_list.append(pns([[note]], quarter_time)[0])
+            chord_list.append(pns([[note]], quarter_time, amp = amps[i])[0])
             i += 1
         sounds.append(chord_list)
+        old_p = percent_done
+        percent_done = round((nc/len(master_array) * 100), 1)
+        sys.stdout.write("#" * (int(percent_done/100*length) - int(old_p/100*length)))
+        sys.stdout.flush()
+        nc += 1.0
+    sys.stdout.write("\n")
     return np.asarray(sounds)
 
-def synth(freq):
+def synth(freq, synth = sin, fade = 0.4):
     """ Generates a karplus_strong sound at a given frequency."""
     rate = 44100 # Sampling rate, in samples/second
     s, Hz = sHz(rate) # Seconds and hertz
     ms = 1e-3 * s
-    return karplus_strong(freq * Hz)
+    if synth == sin:
+        sound = saw_table(freq * Hz) * fadeout(fade*s)
+    elif synth == digitar:
+        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+    else:
+        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+    sound.append(zeros(Hz*(1 - fade)))
+    return sound
 
 def player():
     """ Generates the player object."""
@@ -75,7 +107,7 @@ def play(sound, player):
     rate = 44100
     player.play(sound, rate = rate)
 
-def pns(list_of_chords, t = 0.5, beat = 0):
+def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
     """ Plays notes from a numpy array, where notes along the first dimension
     are played sequentially and notes along the second dimension are played
     simultaneously. "R" or "r" can be used to indicate rest.
@@ -83,6 +115,7 @@ def pns(list_of_chords, t = 0.5, beat = 0):
     t is the length of each note, in seconds.
 
     Example: pns(np.asarray([["C4", "E4, "G4"], ["r, r, r"]["C4, "F4, "A4"]]))"""
+
     if beat > 0:
         list_of_chords = list_of_chords[beat - 1, :]
     rate = 44100
@@ -95,8 +128,8 @@ def pns(list_of_chords, t = 0.5, beat = 0):
             if note.lower() == "r" or note == ".":
                 pass
             else:
-                a.append(synth(freq(note)))
-        sample = zeros(int(t*s*n)).append(sum(a) * 0.5)
+                a.append(synth(freq(note)).append(zeros(s*t*8)))
+        sample = zeros(int(t*s*n)).append(sum(a) * 0.05 * amp)
         n += 1
         b.append(sample)
     delay_time = (t * n)
@@ -104,11 +137,30 @@ def pns(list_of_chords, t = 0.5, beat = 0):
     sound = sum(b).take(int(t*s*n))
     return sound, delay_time
 
-def song_sample_1():
-    track_1 = np.asarray(["C3 . . . G3 . . .".split()]).T
-    track_2 = np.asarray(["Eb4 . F4 Eb4 D4 . F4 Eb4".split()]).T
-    track_3 = np.asarray(["C5 G5 C6 G5 B6 D6 B6 G5".split()]).T
-    return [track_1, track_2, track_3]
+def test_song(list_of_tracks, tempo, amps = [], start_num = 1, increase = 1):
+    if amps == []:
+        amps = len(list_of_tracks[0]) * [1]
+    quarter = 60.0/tempo
+    beat = 1
+    p = player()
+    track_length = len(list_of_tracks[0])
+    music = arrays_to_sound(list_of_tracks, quarter, amps = amps)
+    num_tracks = start_num
+    print("Sample playing.")
+    while True:
+        tic = time.clock()
+        chord = sum(music[beat - 1, :num_tracks])
+        play(chord, p)
+        beat += 1
+        if beat > track_length:
+            beat = 1
+            if num_tracks < len(list_of_tracks):
+                num_tracks += increase
+                if num_tracks > len(list_of_tracks):
+                    num_tracks = len(list_of_tracks)
+        dif = time.clock() - tic
+        if dif < time.ctime(quarter):
+            time.sleep(quarter - dif)
 
 if __name__ == '__main__':
-    print("Several functions to assist with realtime audio generation.")
+    test_song(final_countdown(), 480, amps = [0.8, 1.0, 0.8, 1.2, 1.0, 0.6], start_num = 3)

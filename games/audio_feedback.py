@@ -9,7 +9,7 @@ from std_msgs.msg import Header, ColorRGBA
 import random
 from visualization_msgs.msg import Marker
 import pyttsx
-from os import system
+from os import system, path
 import numpy as np
 import pyaudio
 import wave
@@ -18,13 +18,15 @@ import sys
 
 class AudioFeedback(object):
     def __init__(self):
+        top = path.abspath('..')
+        self.sound_folder = path.join(top, 'auditory/sound_files')
         rospy.init_node('audio_feedback')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         self.x = None   #   x and y position of Tango
         self.y = None
         self.yaw = None
         self.start = False
-        self.mus = pw.Wav("ambience2.wav")  #   Loads music from wav file
+        self.mus = pw.Wav(path.join(self.sound_folder, "ambience2.wav"))  #   Loads music from wav file
         print("Initialization done.")
 
     def process_pose(self, msg):    #   Updates position of Tango
@@ -82,7 +84,7 @@ class AudioFeedback(object):
 
                 if not self.mus.stream.is_active() and playing:
                     self.mus.close()
-                    self.mus = pw.Wav("ambience2.wav")
+                    self.mus = pw.Wav(path.join(self.sound_folder, "ambience2.wav"))
                     self.mus.play()
 
 
@@ -93,7 +95,7 @@ class AudioFeedback(object):
                 total_jump = sum(zd)
                 if total_jump > 0.2:
                     #   If z position has increased by at least 0.2m, user has jumped.
-                    system('aplay /home/jryan/catkin_ws/src/tango_test/scripts/jomp.wav')
+                    system('aplay ' + path.join(self.sound_folder, "jomp.wav"))
                     zd = [0] * int(jump_t * lps)
 
                 yaw_prev = yaw_curr
@@ -106,7 +108,7 @@ class AudioFeedback(object):
                 total_rotation = sum(rotation)
 
                 if abs(total_rotation) > math.pi and rospy.Time.now() - last_whoosh > rospy.Duration(whoosh_frequency):
-                    system('aplay /home/jryan/catkin_ws/src/tango_test/scripts/ding.wav')
+                    system('aplay ' + path.join(self.sound_folder, "ding.wav"))
                     rotation = [0] * int(rot_t * lps)
                     last_whoosh = rospy.Time.now()
 

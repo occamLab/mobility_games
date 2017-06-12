@@ -8,10 +8,12 @@ from std_msgs.msg import Header, ColorRGBA
 import random
 from visualization_msgs.msg import Marker
 import pyttsx
-from os import system
+from os import system, path
 
 class TangoTutorialNode(object):
     def __init__(self):
+        top = path.abspath('..')
+        self.sound_folder = path.join(top, 'auditory/sound_files')
         rospy.init_node('tango_tutorial')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         self.vis_pub = rospy.Publisher('/goal_point', Marker, queue_size=10)
@@ -107,12 +109,12 @@ class TangoTutorialNode(object):
                     rospy.Time.now() - self.last_say_time > rospy.Duration(2.5))):
 
                     self.last_play_time = rospy.Time.now()
-                    #system('aplay beep.wav')
+                    system('aplay ' + path.join(self.sound_folder, 'beep.wav'))
 
 
             if self.start and self.distance_to_goal < 0.6:
                 #   If goal is reached, make a ding and generate new goal
-                system('aplay ding.wav')
+                system('aplay ' + path.join(self.sound_folder, 'ding.wav'))
                 self.goal_found = True
 
             r.sleep()
