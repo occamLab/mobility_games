@@ -22,7 +22,7 @@ class CaneGeometry:
 
         self.pub = rospy.Publisher('/cane_tip', PoseStamped, queue_size=1)
 
-        self.tag_distance = tag_distance
+        self.tag_distance = rospy.get_param('~tag_distance')
 
     def republish_cane_tip(self, tag_msg):
 

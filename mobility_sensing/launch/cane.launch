@@ -28,5 +28,7 @@
     </rosparam>
   </node>
 
-  <node pkg="mobility_sensing" type="cane_geometry.py" name="cane_geometry" output="screen" />
+  <node pkg="mobility_sensing" type="cane_geometry.py" name="cane_geometry" output="screen">
+    <param name="tag_distance" value="29.5" />
+  </node>
 </launch>
