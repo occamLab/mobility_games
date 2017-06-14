@@ -1,0 +1,147 @@
+import rospy
+from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point, Vector3
+from tf.transformations import euler_from_quaternion
+from apriltags_ros.msg import AprilTagDetectionArray
+from std_msgs.msg import Header, ColorRGBA
+import math
+from os import system
+import numpy as np
+import time
+import sys
+import tf
+from mobility_games.auditory.audio_controller import *
+from mobility_games.auditory.song_library import *
+from copy import deepcopy
+
+class ARFind():
+    def __init__(self):
+        rospy.init_node('ar_find')
+        rospy.Subscriber('/tango_pose',
+                        PoseStamped,
+                        self.process_pose)
+        rospy.Subscriber('/fisheye_undistorted/tag_detections',
+                        AprilTagDetectionArray,
+                        self.tag_array)
+        self.x = None   #   x and y position of Tango
+        self.y = None
+        self.z = None
+        self.tag_list = []
+        self.first_tag = None
+        self.tag_x = None
+        self.tag_y = None
+        self.tag_z = None
+        self.yaw = None
+        self.start = False
+        self.listener = tf.TransformListener()  #   Starts listening
+        self.soundtrack = song_sample_1()
+        self.quarter_time = 0.25
+        self.player = player()
+        self.tag_dict = {}
+
+    def process_pose(self, msg):    #   Updates position of Tango
+        self.x = msg.pose.position.x
+        self.y = msg.pose.position.y
+        self.z = msg.pose.position.z
+        angles = euler_from_quaternion([msg.pose.orientation.x,
+                                        msg.pose.orientation.y,
+                                        msg.pose.orientation.z,
+                                        msg.pose.orientation.w])
+        self.yaw = angles[2]
+
+    def tag_array(self, msg):
+        # Processes the april tags currently in Tango's view.
+        # Adds a four-integer tuple to self.tag_list for each tag detected,
+        # which includes x, y, and z coordinates and the tag id.
+        self.tag_list = []
+        self.id_list = []
+        try:
+            for item in msg.detections:
+                newitem = self.listener.transformPose('odom', item.pose)
+                x = newitem.pose.position.x
+                y = newitem.pose.position.y
+                z = newitem.pose.position.z
+                tag_id = item.id
+                self.tag_list.append((x, y, z, tag_id))
+                self.tag_dict[tag_id] = (x, y, z)
+        except:
+            for item in msg.detections:
+                x = None
+                y = None
+                z = None
+                tag_id = item.id
+                self.tag_list.append((x, y, z, tag_id))
+
+    def run(self):
+        r = rospy.Rate(10)
+        print("Searching for Tango...")
+        while not rospy.is_shutdown():
+            if self.x and not self.start:
+                self.start = True
+                print("Connection established.")
+                print("Searching for tags...")
+            a = []
+            list_of_visible_tags = [cell[3] for cell in self.tag_list]
+            if len(self.tag_list) and self.start:
+                if not self.first_tag and not None in [item[1] for item in self.tag_list]:
+                    self.first_tag = self.tag_list[0]
+                    print("First tag found!")
+                if not None in [item[1] for item in self.tag_list]:
+                    for tag in self.tag_list:
+                        new_tag = tag
+                        dist = []
+                        for i in range(0, 3):
+                            dif = (new_tag[i] - self.first_tag[i])
+                            #print(dif)
+                            dist.append(dif**2)
+                        tot_dist = math.sqrt(sum(dist))
+                        a.append(tot_dist)
+            if self.start and not (a == [] and list_of_visible_tags != []):
+                distance_string = str([round(item, 2) for item in a])[1:-1]
+                str1 = "Distances from first tag: %s" % distance_string
+                list_of_visible_tags = [cell[3] for cell in self.tag_list]
+                tags_string = str(list_of_visible_tags)[1:-1]
+                str2 = "Tags I can see: %s" % tags_string
+                print
+                print(str2)
+                print(str1)
+                print self.tag_dict
+                #print self.tag_list
+            r.sleep()
+
+    def soundscape(self):
+        self.music = arrays_to_sound(self.soundtrack, self.quarter_time)
+        quarter_time = 0.25
+        beat = 1
+        last_chord = rospy.Time.now()
+        r = rospy.Rate(3/quarter_time)
+        print("Searching for Tango...")
+        while not rospy.is_shutdown():
+            if self.x and not self.start:
+                self.start = True
+                print("Connection established.")
+                print("Searching for tags...")
+            if self.start:
+                list_of_visible_tags = [cell[3] for cell in self.tag_list]
+                print("Tags I can see: " + str(list_of_visible_tags))
+
+                if rospy.Time.now() - last_chord > rospy.Duration(self.quarter_time):
+                    chord = None
+                    chord = deepcopy(self.music[beat - 1, 0])
+                    if 0 in list_of_visible_tags:
+                        chord += self.music[beat - 1, 1]
+                    if 1 in list_of_visible_tags:
+                        chord += self.music[beat - 1, 2]
+                    if 2 in list_of_visible_tags:
+                        chord += self.music[beat - 1, 3]
+                    play(chord, self.player)
+                    beat += 1
+                    if beat > len(self.music):
+                        beat = 1
+                    last_chord = rospy.Time.now()
+                    #print self.tag_list
+            r.sleep()
+
+if __name__ == '__main__':
+    node = ARFind()
+    #node.soundscape()
+    node.run()
