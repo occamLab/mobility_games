@@ -4,7 +4,7 @@ from tf.transformations import euler_from_quaternion
 from apriltags_ros.msg import AprilTagDetectionArray
 from std_msgs.msg import Header, ColorRGBA
 import math
-from os import system
+from os import system, path
 import numpy as np
 import time
 import sys
@@ -12,6 +12,9 @@ import tf
 from mobility_games.auditory.audio_controller import *
 from mobility_games.auditory.song_library import *
 from copy import deepcopy
+import tty
+import termios
+from rospkg import RosPack
 
 class ARFind():
     def __init__(self):
@@ -53,6 +56,7 @@ class ARFind():
         # Adds a four-integer tuple to self.tag_list for each tag detected,
         # which includes x, y, and z coordinates and the tag id.
         self.tag_list = []
+        self.orientation_list = []
         self.id_list = []
         try:
             for item in msg.detections:
@@ -63,6 +67,12 @@ class ARFind():
                 tag_id = item.id
                 self.tag_list.append((x, y, z, tag_id))
                 self.tag_dict[tag_id] = (x, y, z)
+                angles = euler_from_quaternion([newitem.pose.orientation.x,
+                                                newitem.pose.orientation.y,
+                                                newitem.pose.orientation.z,
+                                                newitem.pose.orientation.w])
+                self.orientation_list.append(angles)
+                self.id_list.append(tag_id)
         except:
             for item in msg.detections:
                 x = None
@@ -70,6 +80,7 @@ class ARFind():
                 z = None
                 tag_id = item.id
                 self.tag_list.append((x, y, z, tag_id))
+                self.id_list.append(tag_id)
 
     def run(self):
         r = rospy.Rate(10)
@@ -141,7 +152,47 @@ class ARFind():
                     #print self.tag_list
             r.sleep()
 
+    def plot_waypoints(self, number):
+        self.orientation_list = []
+        top = RosPack().get_path('mobility_games')
+        self.sound_folder = path.join(top, 'auditory/sound_files')
+        waypoints = []
+        r = rospy.Rate(10)
+        print("Searching for Tango...")
+        while not rospy.is_shutdown():
+            if self.x and not self.start:
+                self.start = True
+                print("Connection established.")
+                print("Searching for tags...")
+            if len(self.tag_list) and self.start:
+                if not self.first_tag and not None in [item[1] for item in self.tag_list]:
+                    self.first_tag = self.tag_list[0]
+                    print("First tag found!")
+                    print self.first_tag
+                    system('aplay ' + path.join(self.sound_folder, "ding.wav"))
+            orig_settings = termios.tcgetattr(sys.stdin)
+            x = 0
+            if self.start and self.first_tag:
+                if len(waypoints) >= number:
+                    break
+                print("Expecting keypress...")
+                x=sys.stdin.read(1)
+                waypoints.append((self.x, self.y, self.z))
+                system('aplay ' + path.join(self.sound_folder, "beep.wav"))
+                print("Waypoints:")
+                for item in waypoints:
+                    print(item)
+                print(self.orientation_list)
+            r.sleep()
+        while not self.first_tag[3] in self.id_list:
+            print self.first_tag[3]
+            print self.id_list
+            r.sleep()
+        system('aplay ' + path.join(self.sound_folder, "ding.wav"))
+
 if __name__ == '__main__':
     node = ARFind()
+    #node.run()
+    node.plot_waypoints(3)
     #node.soundscape()
-    node.run()
+    #node.run()
