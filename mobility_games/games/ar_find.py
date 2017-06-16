@@ -211,7 +211,7 @@ class ARFind():
 
 if __name__ == '__main__':
     node = ARFind()
-    #node.run()
-    node.plot_waypoints(3)
+    node.run()
+    #node.plot_waypoints(3)
     #node.soundscape()
     #node.run()
