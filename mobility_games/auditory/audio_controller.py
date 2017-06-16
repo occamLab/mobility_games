@@ -101,6 +101,10 @@ def synth(freq, synth = "sin", fade = 0.4):
     sound.append(zeros(Hz*(1 - fade)))
     return sound
 
+    #TODO fix bug where script will crash at specific tempos when fadeout is
+    #   applied. I think this is because the fadeout actually shortens the
+    #   length of the audio sample, causing gaps at slower tempos.
+
 def player():
     """ Generates the player object."""
     return AudioIO(True)

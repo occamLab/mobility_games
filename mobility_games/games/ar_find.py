@@ -58,6 +58,10 @@ class ARFind():
         self.tag_list = []
         self.orientation_list = []
         self.id_list = []
+
+        #TODO Add a wait for transform and remove try/except
+        #   Occasionally, transform will give error because of differences in
+        #   timestamp. The except provides tag ID without using tf.
         try:
             for item in msg.detections:
                 newitem = self.listener.transformPose('odom', item.pose)
@@ -93,7 +97,7 @@ class ARFind():
             a = []
             list_of_visible_tags = [cell[3] for cell in self.tag_list]
             if len(self.tag_list) and self.start:
-                if not self.first_tag and not None in [item[1] for item in self.tag_list]:
+                if not self.first_tag and not (None in [item[1] for item in self.tag_list]):
                     self.first_tag = self.tag_list[0]
                     print("First tag found!")
                 if not None in [item[1] for item in self.tag_list]:
@@ -142,7 +146,8 @@ class ARFind():
                     notes = self.music[beat - 1, :]
                     chord = deepcopy(self.music[beat - 1, 0])   #   Copy so that self.music isn't changed
                     track = 1
-                    for tag in range(0, len(notes)):
+                    tags_anticipated = range(0, len(notes))
+                    for tag in tags_anticipated:    #   can be changed to a list of tag ids
                         if tag in list_of_visible_tags:
                             chord += self.music[beat - 1, track]
                         track += 1
