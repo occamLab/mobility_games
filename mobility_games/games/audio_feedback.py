@@ -27,7 +27,12 @@ class AudioFeedback(object):
         self.y = None
         self.yaw = None
         self.start = False
-        self.mus = pw.Wav(path.join(self.sound_folder, "ambience2.wav"))  #   Loads music from wav file
+        self.music_dict = {0 : "ambience2.wav"}
+        self.mus = []
+        i = 0
+        for tag in music_dict:
+            self.mus.append(pw.Wav(path.join(self.sound_folder, self.music_dict[i])))  #   Loads music from wav file
+            i += 1
         print("Initialization done.")
 
     def process_pose(self, msg):    #   Updates position of Tango
