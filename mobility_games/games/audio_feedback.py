@@ -27,7 +27,8 @@ class AudioFeedback(object):
         self.y = None
         self.yaw = None
         self.start = False
-        self.mus = pw.Wav(path.join(self.sound_folder, "ambience2.wav"))  #   Loads music from wav file
+        self.music_to_play = "ambience2.wav"
+        self.mus = pw.Wav(path.join(self.sound_folder, self.music_to_play))  #   Loads music from wav file
         print("Initialization done.")
 
     def process_pose(self, msg):    #   Updates position of Tango
@@ -85,7 +86,7 @@ class AudioFeedback(object):
 
                 if not self.mus.stream.is_active() and playing:
                     self.mus.close()
-                    self.mus = pw.Wav(path.join(self.sound_folder, "ambience2.wav"))
+                    self.mus = pw.Wav(path.join(self.sound_folder, self.music_to_play))
                     self.mus.play()
 
 
