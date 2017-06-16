@@ -120,11 +120,14 @@ class ARFind():
             r.sleep()
 
     def soundscape(self):
+        """ Plays different audio tracks together depending on which tags are
+        currently within the frame of the camera. """
+
         self.music = arrays_to_sound(self.soundtrack, self.quarter_time)
         quarter_time = 0.25
         beat = 1
         last_chord = rospy.Time.now()
-        r = rospy.Rate(3/quarter_time)
+        r = rospy.Rate(3/quarter_time)  #   Synch ros rate so that beats line up nicely
         print("Searching for Tango...")
         while not rospy.is_shutdown():
             if self.x and not self.start:
@@ -132,27 +135,28 @@ class ARFind():
                 print("Connection established.")
                 print("Searching for tags...")
             if self.start:
-                list_of_visible_tags = [cell[3] for cell in self.tag_list]
+                list_of_visible_tags = [cell[3] for cell in self.tag_list]  #   List of tag IDs in frame
                 print("Tags I can see: " + str(list_of_visible_tags))
 
                 if rospy.Time.now() - last_chord > rospy.Duration(self.quarter_time):
-                    chord = None
-                    chord = deepcopy(self.music[beat - 1, 0])
-                    if 0 in list_of_visible_tags:
-                        chord += self.music[beat - 1, 1]
-                    if 1 in list_of_visible_tags:
-                        chord += self.music[beat - 1, 2]
-                    if 2 in list_of_visible_tags:
-                        chord += self.music[beat - 1, 3]
+                    notes = self.music[beat - 1, :]
+                    chord = deepcopy(self.music[beat - 1, 0])   #   Copy so that self.music isn't changed
+                    track = 1
+                    for tag in range(0, len(notes)):
+                        if tag in list_of_visible_tags:
+                            chord += self.music[beat - 1, track]
+                        track += 1
                     play(chord, self.player)
                     beat += 1
                     if beat > len(self.music):
-                        beat = 1
+                        beat = 1    #   Loop sample if at end
                     last_chord = rospy.Time.now()
                     #print self.tag_list
             r.sleep()
 
     def plot_waypoints(self, number):
+        """ Waypoint game, except waypoints are physically plotted out beforehand. """
+
         self.orientation_list = []
         top = RosPack().get_path('mobility_games')
         self.sound_folder = path.join(top, 'auditory/sound_files')
@@ -175,7 +179,7 @@ class ARFind():
             if self.start and self.first_tag:
                 if len(waypoints) >= number:
                     break
-                print("Expecting keypress...")
+                print("Press enter to add a waypoint (%s/%s)...") % (len(waypoints), number)
                 x=sys.stdin.read(1)
                 waypoints.append((self.x, self.y, self.z))
                 system('aplay ' + path.join(self.sound_folder, "beep.wav"))
@@ -185,10 +189,25 @@ class ARFind():
                 print(self.orientation_list)
             r.sleep()
         while not self.first_tag[3] in self.id_list:
-            print self.first_tag[3]
-            print self.id_list
+            #print self.first_tag[3]
+            #print self.id_list
             r.sleep()
         system('aplay ' + path.join(self.sound_folder, "ding.wav"))
+        last_beep = rospy.Time.now()
+        found_waypoints = 0
+        for point in waypoints:
+            dist = math.sqrt((self.x - point[0])**2 + (self.y - point[1])**2 + (self.z - point[2])**2)
+            while dist >= 1.0:  #   Waits until user hits a waypoint
+                dist = math.sqrt((self.x - point[0])**2 + (self.y - point[1])**2 + (self.z - point[2])**2)
+                print(dist)
+                r.sleep()
+                if rospy.Time.now() - last_beep > rospy.Duration(1.0):
+                    freq_to_play = max(1500 - (dist * 75), 150) #   Plays a higher pitch the closer the user is to the waypoint
+                    beep = synth(freq_to_play, synth = "digitar", fade = 1.0).take(40000)
+                    play(beep, self.player)
+                    last_beep = rospy.Time.now()
+            found_waypoints += 1
+            system('aplay ' + path.join(self.sound_folder, "ding.wav"))
 
 if __name__ == '__main__':
     node = ARFind()
