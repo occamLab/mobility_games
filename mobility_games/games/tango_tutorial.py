@@ -14,7 +14,7 @@ from rospkg import RosPack
 class TangoTutorialNode(object):
     def __init__(self):
         top = RosPack().get_path('mobility_games')
-        self.sound_folder = path.join(top, 'mobility_games/auditory/sound_files')
+        self.sound_folder = path.join(top, 'auditory/sound_files')
         rospy.init_node('tango_tutorial')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         self.vis_pub = rospy.Publisher('/goal_point', Marker, queue_size=10)
