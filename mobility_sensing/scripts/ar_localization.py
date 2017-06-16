@@ -10,13 +10,13 @@ class ARLocalization:
     def __init__(self):
         rospy.init_node('ar_localization')
         rospy.Subscriber('/fisheye_undistorted/tag_detections_pose',
-                         PoseArray, self.republish_cane_tip)
+                         PoseArray, self.republish_opposing_tag)
 
         self.pub = rospy.Publisher('/other_tag', PoseStamped, queue_size=1)
 
         self.tag_distance = rospy.get_param('~tag_distance')
 
-    def republish_cane_tip(self, tag_msg):
+    def republish_opposing_tag(self, tag_msg):
 
         # If any tags were detected
         if len(tag_msg.poses):
@@ -31,22 +31,19 @@ class ARLocalization:
 
             length_m = self.tag_distance
 
-            # FIXME: Tip location calc is approximate.
-            # Tag is not concentric with cane.
-
             # normal was pointing towards handle
             # opposite direction of normal is tip
-            cane_tip_position = Point(pos.x + length_m * R[0,2],
-                                      pos.y + length_m * R[1,2],
-                                      pos.z + length_m * R[2,2])
+            opposing_tag_position = Point(pos.x + length_m * R[0,2],
+                                          pos.y + length_m * R[1,2],
+                                          pos.z + length_m * R[2,2])
 
-            cane_tip_pose = Pose(position=cane_tip_position,
-                                 orientation=quat)
+            opposing_tag_pose = Pose(position=opposing_tag_position,
+                                     orientation=quat)
 
-            cane_tip_pose_stamped = PoseStamped(header=tag_msg.header,
-                                                pose=cane_tip_pose)
+            opposing_tag_pose_stamped = PoseStamped(header=tag_msg.header,
+                                                    pose=opposing_tag_pose)
 
-            self.pub.publish(cane_tip_pose_stamped)
+            self.pub.publish(opposing_tag_pose_stamped)
 
     def run(self):
         """ The main run loop"""
@@ -56,5 +53,5 @@ class ARLocalization:
 
 
 if __name__ == "__main__":
-    cane = ARLocalization()
-    cane.run()
+    node = ARLocalization()
+    node.run()
