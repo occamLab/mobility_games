@@ -29,7 +29,7 @@ def freq(name):
     except:
         print("That is not a note.")
 
-def delay(sig, delaynum, delayinterval, startamp):
+def delay(sig, delaynum, delayinterval, startamp = 1):
   """ Simple feedforward delay effect """
   smix = Streamix()
   sig = thub(sig, delaynum) # Auto-copy 3 times (remove this line if using feedback)

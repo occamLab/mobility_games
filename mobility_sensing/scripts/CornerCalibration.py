@@ -59,11 +59,10 @@ class CornerCalibration(object):
 
     def run(self):
         time.sleep(1)
-        r = rospy.Rate(2)
+        r = rospy.Rate(3)
         cumulativecorners = np.zeros((4,3))
         while(self.calibrationcounter < self.calibrationtries and not rospy.is_shutdown()):
             self.m.acquire()# LOCK
-            cumulativecorners
             print "attempt"
             if not self.actualP is None and not self.position is None:
                 #raw_input("Hit enter to calibrate: ")
@@ -89,12 +88,13 @@ class CornerCalibration(object):
                 #pickle.dump(cind0, open("corners.p", "wb" ))
                 self.stamp = self.actualP.header.stamp
                 self.frame_id = self.actualP.header.frame_id
-            self.actualP = None
+            #self.actualP = None
             self.CurrP = None
+            self.posiiton = None
             self.m.release()
             r.sleep()
+        markers = []
         if (self.calibrationcounter >= self.calibrationtries):
-            markers = []
             normcorners = (cumulativecorners.T/np.linalg.norm(cumulativecorners, axis=1)).T
             print "FINAL CALIBRATION RESULT"
             print normcorners
@@ -109,6 +109,11 @@ class CornerCalibration(object):
             print "success"
         else:
             print "something went wrong?"
+        while (not rospy.is_shutdown()):
+            for i in range(len(markers)):
+                markers[i].header.stamp = self.actualP.header.stamp
+            self.pose_pub.publish(MarkerArray(markers = markers))
+            r.sleep()
 
                 #self.CurrP, actualPCopy = self.pcloud_transform(self.actualP, '/odom', True) #use to check if all points are in plane
     def getpoints(self, cloud):

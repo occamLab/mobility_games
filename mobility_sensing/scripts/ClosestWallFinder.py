@@ -14,7 +14,7 @@ from os import system
 #import copy
 import tf
 import math
-import audio_controller as ac
+import mobility_games.auditory.audio_controller as ac
 from audiolazy import *
 import sys
 
@@ -53,7 +53,7 @@ class ClosestWallFinder(object):
         self.robustThreshold = 400 #Minimum number of points required to find plane
         self.ycutoff = 5; #How much of the phone's view is used (0 uses only the right side of the phone camera, a positive number will allow for more on the left to be seen as well, and a negative number will favor only the most right points)
         self.saved_plane_model = None; #Initialize saved plane
-        self.maxcornerdist = 6;
+        self.maxcornerdist = 4.5;
         self.corner_dist0 = None;
         self.corner_dist1 = None;
         self.camera_corners = [None]*4;
@@ -62,7 +62,7 @@ class ClosestWallFinder(object):
         #self.untransformed_saved_plane_model = None; #Initialize untransformed version of saved plane
         self.position = None; #Initialize current phone location
         self.walldist = 0; #Initialize Distance to Wall
-        self.minimum_non_corner_dist = .2 #minimum distance a corner has to be from the screen edge to be considered an actual corner
+        self.minimum_non_corner_dist = .5 #minimum distance a corner has to be from the screen edge to be considered an actual corner
 
         self.linelength = 10 #Determines length of drawn line in rviz
         #self.cornerlength = 2 #Determines length of drawn corner in rviz
@@ -103,7 +103,7 @@ class ClosestWallFinder(object):
             point = msg.markers[i].points[1]
             self.camera_corners[i] = [point.x, point.y, point.z]
             self.camera_corners_vector[i] = Vector3Stamped(header = msg.markers[i].header, vector = Vector3(point.x, point.y, point.z))
-        print "received points"
+        #print "received points"
         self.m.release()
 
     def plane_distance(self, saved_plane_model, position):
@@ -203,10 +203,11 @@ class ClosestWallFinder(object):
                                 self.walldist = newdist # set walldist
                                 break #skip to next iteration of while loop
 
-
-                            actualPCopy.points  = [actualPCopy.points[indx] for indx in indices] #Set ROS pointcloud to only include plane points
+                            self.walldist = new_plane_dist #Set walldist to new plane distance
+                            actualPCopy.points  = [actualPCopy.points[indx] for indx in indices if np.linalg.norm(self.posdiff([actualPCopy.points[indx].x, actualPCopy.points[indx].y, actualPCopy.points[indx].z])) < math.sqrt(math.pow(self.walldist,2) + math.pow(self.maxcornerdist,2))] #Set ROS pointcloud to only include plane points
                             numericpoints = np.array([(p.x, p.y, p.z) for p in actualPCopy.points], dtype = np.float32)
                             corner_check = []
+                            cnrpnts = []
                             transformed_camera = []
                             for o in self.camera_corners_vector:
                                 o.header.stamp = rospy.Time(0)
@@ -220,11 +221,14 @@ class ClosestWallFinder(object):
                                 elif p == False:
                                     corner_check.append(False)
                                     continue
+                                cnrpnts.append(p)
                                 inpcloud = self.isnearpoint(p, numericpoints)
                                 corner_check.append(inpcloud)
-                            print(corner_check)
+                            #print(corner_check)
+                            cornerstofind = self.furthest_corners(cnrpnts, corner_check, plane_model)
+                            print cornerstofind
 
-                            self.walldist = new_plane_dist #Set walldist to new plane distance
+
                             self.linepoints = self.gettangentpoints(plane_model) #Make line for RVIZ
 
                             #Since the only way to get to this part of the code is if the current plane was used, the code now overrides all of the saved information with the new plane's information
@@ -235,13 +239,12 @@ class ClosestWallFinder(object):
 
                             #print "corner_candidate: " + str(corner_candidate)
                             #print "cornerdist: " + str(cornerdist)
-                            if cornerdists[0] < self.maxcornerdist:
+                            if cornerdists[0] < self.maxcornerdist and cornerstofind[0]:
                                 self.corner0 = corner_candidates[0]
                                 self.corner_dist0 = cornerdists[0]
-                            if cornerdists[1] < self.maxcornerdist:
+                            if cornerdists[1] < self.maxcornerdist and cornerstofind[1]:
                                 self.corner1 = corner_candidates[1]
                                 self.corner_dist1 = cornerdists[1]
-
                             #self.untransformed_saved_plane_model = new_plane_model # set untransformed plane to current untransformed plane
 
                             break #start next wall find
@@ -250,6 +253,8 @@ class ClosestWallFinder(object):
                                 actualPCopy.points[a] = 0 #set those indices to 0
                             for a in indices: #loop through all the indices again
                                 actualPCopy.points.remove(0) #remove the first 0 found (which all in all, removes all of the points in the plane)
+                            if len(actualPCopy.points) < 5:
+                                break
                             cloud_filtered = pcl.PointCloud(np.asarray([(p.x, p.y, p.z) for p in actualPCopy.points], dtype = np.float32)) # set new pcl pointcloud that uses the updated ROS pointcloud (which doesn't have the indices in the nonwall plane that was found)
 
                             #MAKE NEW SEGMENTER TO BE READY TO FIND THE PLANE
@@ -263,7 +268,8 @@ class ClosestWallFinder(object):
                     #pass #ignore it
                     #print inst #print it
                     print "wall_distance: " + str(abs(self.walldist)) #print the current wall distance
-                    print "corner_distance0 and 1 : " + str((self.corner_dist0,self.corner_dist1))
+                    #print "corner_distance0 and 1 : " + str((self.corner_dist0,self.corner_dist1))
+                    self.pub.publish(actualPCopy)
                     self.dist_pub.publish(self.walldist)
                     #SEND MARKER TO RVIZ PUBLISHER
                     if (self.visualized and self.linepoints):
@@ -306,15 +312,41 @@ class ClosestWallFinder(object):
                 self.actualP = None #reset pointcloud, so as to not accidentally do the same pointcloud twice and wait for the next one from the phone
                 self.m.release()
             r.sleep() #wait until next iteration
+    def furthest_corners(self, corners, corners_check, plane):
+        truefalse_mag=sum(corners_check)
+        if truefalse_mag < 2:
+            corners_to_check = [True, True]
+        perplinedir = np.array([-plane[1], plane[0]], dtype = np.float32)
+        pind = -1
+        pind2 = -1
+
+        curdot = sys.float_info.min
+        curdot2 = sys.float_info.max
+        for i in range(len(corners)):
+            testdot = np.dot(corners[i][:2], perplinedir)
+            if testdot > curdot:
+                pind = i
+                curdot = testdot
+            elif testdot < curdot2:
+                pind2 = i
+                curdot2 = testdot
+        corners_to_check = [pind, pind2]
+        for i in range(2):
+            if corners_check[corners_to_check[i]]:
+                corners_to_check[i] = True
+            else:
+                corners_to_check[i] = False
+        return corners_to_check
     def planevec_intersect(self, u, n):
         pos = [self.position.x, self.position.y, self.position.z]
         wallpos = self.getclosestpoint(n)
         w = [pos[i] - wallpos[i] for i in range(3)]
-        if (abs(np.dot(n[:3],u)) < .001):
-            return False
-        numerator = -np.dot(n[:3], w) + n[3] #plane_model[0] * self.position.x + plane_model[1] * self.position.y + plane_model[2] * self.position.z + plane_model[3]
+        #if (abs(np.dot(n[:3],u)) < .001):
+        #    return False
+        numerator = -np.dot(n[:3], w) - n[3] #plane_model[0] * self.position.x + plane_model[1] * self.position.y + plane_model[2] * self.position.z + plane_model[3]
         denominator = np.dot(n[:3], u)#sum([vec[i] * plane_model[i] for i in range(len(vec))])
         s = numerator/denominator
+        #print s
         if s < 0:
             return False
         if s > self.maxcornerdist:
@@ -324,11 +356,14 @@ class ClosestWallFinder(object):
         return p
 
     def isnearpoint(self, point, pcloud):
+        #mindist = 10000
         for i in pcloud:
             dist = np.linalg.norm([point[j]-i[j] for j in range(3)])
-            print(dist)
+            #if dist < mindist:
+            #    mindist = dist
             if dist < self.minimum_non_corner_dist:
                 return True
+        #print mindist
         return False
 
     def posdiff(self, p, d2 = True):

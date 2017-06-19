@@ -14,7 +14,7 @@ from os import system
 #import copy
 import tf
 import math
-import audio_controller as ac
+import mobility_games.auditory.audio_controller as ac
 from audiolazy import *
 
 class plane_finder(object):
