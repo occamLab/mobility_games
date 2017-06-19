@@ -12,9 +12,6 @@ class wall_audio_player(object):
         rospy.Subscriber('/smart_wall_dist', Float64, self.get_dist)
         self.last_sound_time = rospy.Time.now() #Initialize the last time a sound was made
         self.dist = None
-        #self.rate = 44100
-        #self.s, self.Hz = sHz(self.rate)
-        #self.ms = 1e-3*self.s
         self.player = ac.player() #play the sound.
         self.altsounddist = .5;
     def get_dist(self, msg):
@@ -29,7 +26,6 @@ class wall_audio_player(object):
                     system("aplay ../auditory/sound_files/ding.wav")
                 else:
                     freq = max(min(100*math.exp((abs(self.dist)-self.altsounddist)/1.6)+65.4, 2092.8), 65.4) #set frequency based on distance
-                    #print freq #Print out the frequency
                     freq = ac.quantize(freq, key="C")
                     self.synth = ac.synth(freq, synth="digitar", fade = 1) #create synth for sound
                     #self.synth = ac.delay(self.synth, 1, self.s*.2, .5) #add delay to the synth
