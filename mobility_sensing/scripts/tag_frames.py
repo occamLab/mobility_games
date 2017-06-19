@@ -28,8 +28,11 @@ class TagFrames:
 
             try:
                 t = self.listener.getLatestCommonTime("odom", tag_frame)
+                # self.AR_trans, self.AR_rot = self.listener.lookupTransform(
+                #         "odom", tag_frame, t)
                 self.AR_trans, self.AR_rot = self.listener.lookupTransform(
-                        "odom", tag_frame, t)
+                        tag_frame, "odom", t)
+                print self.AR_trans, self.AR_rot
                 print self.AR_trans, self.AR_rot
 
             except (tf.ExtrapolationException,
