@@ -8,13 +8,12 @@ from std_msgs.msg import Header, ColorRGBA
 import random
 from visualization_msgs.msg import Marker
 import pyttsx
-from os import system, path
-from rospkg import RosPack
+from os import system
+from audiolazy import *
+import mobility_games.auditory.audio_controller as ac
 
 class TangoTutorialNode(object):
     def __init__(self):
-        top = RosPack().get_path('mobility_games')
-        self.sound_folder = path.join(top, 'mobility_games/auditory/sound_files')
         rospy.init_node('tango_tutorial')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         self.vis_pub = rospy.Publisher('/goal_point', Marker, queue_size=10)
@@ -66,7 +65,6 @@ class TangoTutorialNode(object):
     def run(self):
         r = rospy.Rate(10)  #   Runs loop at 10 times per second
         has_spoken = False
-        print("Searching for Tango...")
         while not rospy.is_shutdown():
 
             #   Because self.x starts at None, a value in self.x means Tango is
@@ -77,7 +75,6 @@ class TangoTutorialNode(object):
                 self.yaw_init = self.yaw
                 self.goal_found = True
                 self.start = True
-                print("Tango found.")
 
             if self.goal_found:
                 self.goal_rad = random.random() * self.radius       #   Generates new goal position
@@ -100,24 +97,28 @@ class TangoTutorialNode(object):
                     #   If it has been ten seconds since last speech, give voice instructions
                     self.last_say_time = rospy.Time.now()
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.x_goal, self.y_goal))
-                    self.engine.say(speech)
+                    #self.engine.say(speech)
                     if not has_spoken:
                         a = self.engine.runAndWait()
                         self.engine.say("Hello.")
                         a = self.engine.runAndWait()
                     has_spoken = True
                 if ((not self.last_play_time or
-                    rospy.Time.now() - self.last_play_time > rospy.Duration(6.0/(1+math.exp(-self.distance_to_goal*.3))-2.8)) and
+                    rospy.Time.now() - self.last_play_time > rospy.Duration(3.0/(1+math.exp(-self.distance_to_goal*.3))-1.4)) and
                     (not self.last_say_time or
-                    rospy.Time.now() - self.last_say_time > rospy.Duration(2.5))):
+                    rospy.Time.now() - self.last_say_time > rospy.Duration(0))):
 
                     self.last_play_time = rospy.Time.now()
-                    system('aplay ' + path.join(self.sound_folder, 'beep.wav'))
+                    freq = max([-900/(self.radius*2)*self.distance_to_goal+1000, 100])
+                    print(400-(freq/2.5))
+                    currsynth = ac.delay(ac.synth(freq), 3, delayinterval = 500-(freq/2.5))
+                    ac.player(currsynth, .8, volume = 1)#max(min(1.1-(freq/1000), 1), .1))
 
+                #self.last_say_time = rospy.Time.now()
 
             if self.start and self.distance_to_goal < 0.6:
                 #   If goal is reached, make a ding and generate new goal
-                system('aplay ' + path.join(self.sound_folder, 'ding.wav'))
+                system('aplay ding.wav')
                 self.goal_found = True
 
             r.sleep()
