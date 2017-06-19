@@ -4,6 +4,7 @@ import numpy as np
 import rospy
 import time
 import sys
+import math
 
 def freq(name):
     """ Generates frequency based on note name.
@@ -46,6 +47,39 @@ def delay(sig, delaynum, delayinterval, startamp = 1):
   # or something alike (e.g. ensuring that duration outside of this
 # function), helping you to avoid an endless signal.
 
+def quantize(pitch, quantizetype = "scale", key = "A"):
+    basepitch = freq(key+"0")
+    toppitch = freq(key+"1")
+    octavediff = 0;
+    quantizedict = {"chromatic":[16.35, 17.32, 18.35, 19.45, 20.60, 21.83, 23.12, 24.50, 25.96, 27.59, 29.14, 30.87, 32.70],
+                    "scale":[16.35, 18.35, 20.60, 21.83, 24.50, 27.59, 30.87, 32.70],
+                    "M":[16.35, 20.60, 24.50, 32.70],
+                    "m":[16.35, 19.45, 24.50, 32.70],
+                    "M7":[16.35, 20.60, 24.50, 30.87, 32.70]}
+    freqlist = quantizedict.get(quantizetype)
+    C0ToNote = basepitch/freq("C0")
+    freqlist = [i*C0ToNote for i in freqlist]
+    #print(freqlist)
+    if pitch > toppitch:
+        while (pitch > toppitch):
+            pitch = pitch/2
+            octavediff+=1
+    elif pitch < basepitch:
+        while (pitch < basepitch):
+            pitch = pitch*2
+            octavediff-=1
+    closeness = 100
+    #print(pitch)
+    for i in freqlist:
+        pdiff = abs(pitch - i)
+        if pdiff < closeness:
+            closestpitch = i
+            closeness = pdiff
+    #print(closestpitch)
+    closestpitch = closestpitch * math.pow(2, octavediff)
+    return closestpitch
+    #print(closestpitch)
+
 def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     """ Takes in a list of numpy arrays for audio tracks and
     the time of a quarter note, in seconds.
@@ -87,17 +121,17 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     print("Sounds generated.")
     return np.asarray(sounds)
 
-def synth(freq, synth = sin, fade = 0.4):
+def synth(freq, synth = 'sin', fade = 0.4):
     """ Generates a karplus_strong sound at a given frequency."""
     rate = 44100 # Sampling rate, in samples/second
     s, Hz = sHz(rate) # Seconds and hertz
     ms = 1e-3 * s
-    if synth == sin:
+    if synth == 'sin':
         sound = saw_table(freq * Hz) * fadeout(fade*s)
-    elif synth == digitar:
-        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+    elif synth == 'digitar':
+        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
     else:
-        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
     sound.append(zeros(Hz*(1 - fade)))
     return sound
 
@@ -108,6 +142,14 @@ def player():
 def play(sound, player):
     """ Plays a sound object """
     rate = 44100
+    player.play(sound, rate = rate)
+
+def playstream(stream, player, seconds = 1):
+    """Plays a stream object for a set amount of time."""
+    rate = 44100
+    s, Hz = sHz(rate)
+    ms = 1e-3*s
+    sound = stream.take(int(seconds*s))
     player.play(sound, rate = rate)
 
 def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):

@@ -3,7 +3,7 @@
 import rospy
 from std_msgs.msg import Float64
 import math
-import audio_controller as ac
+import mobility_games.auditory.audio_controller as ac
 from os import system
 
 class wall_audio_player(object):
