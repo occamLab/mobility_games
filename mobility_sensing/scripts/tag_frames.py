@@ -21,29 +21,21 @@ class TagFrames:
                 tags_seen.append(frame)
         return tags_seen
 
-    def publish_tag_odom_transform(self, tag_frame):
+    def update_tag_odom_transform(self, tag_frame):
 
         if (self.listener.frameExists("odom")
                 and self.listener.frameExists(tag_frame)):
 
             try:
-                # One way
                 t = self.listener.getLatestCommonTime("odom", tag_frame)
-                trans, rot = self.listener.lookupTransform("odom",
-                                                           tag_frame,
-                                                           t)
+                self.AR_trans, self.AR_rot = self.listener.lookupTransform(
+                        "odom", tag_frame, t)
+                print self.AR_trans, self.AR_rot
 
-                print trans, rot
-                self.broadcaster.sendTransform(trans,
-                                               rot,
-                                               rospy.get_rostime(),
-                                               "odom",
-                                               "AR")
             except (tf.ExtrapolationException,
                     tf.LookupException,
                     tf.ConnectivityException) as e:
                 print e
-                return
 
     def run(self):
         """ The main run loop """
@@ -56,8 +48,14 @@ class TagFrames:
                 if self.first_tag is None:
                     self.first_tag = tags_seen[0]
 
-                # make AR origin frame always available
-                self.publish_tag_odom_transform(self.first_tag)
+                # update AR_trans and AR_rot, if possible
+                self.update_tag_odom_transform(self.first_tag)
+
+                self.broadcaster.sendTransform(self.AR_trans,
+                                               self.AR_rot,
+                                               rospy.get_rostime(),
+                                               "odom",
+                                               "AR")
 
             r.sleep()
 
