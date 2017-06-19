@@ -10,17 +10,16 @@ class TagFrames:
         rospy.init_node('tag_frames')
         self.listener = tf.TransformListener()
         self.broadcaster = tf.TransformBroadcaster()
-        self.tags_seen = []
+        self.first_tag = None
 
-    def tag_detected(self):
+    def tags_detected(self):
+        tags_seen = []
         frame_strings = self.listener.getFrameStrings()
-
         for frame in frame_strings:
             # a tag of some id was found
             if 'tag_' in frame:
-
-                # TODO: only works with one tag
-                return frame
+                tags_seen.append(frame)
+        return tags_seen
 
     def publish_tag_odom_transform(self, tag_frame):
 
@@ -51,13 +50,14 @@ class TagFrames:
         r = rospy.Rate(10)
 
         while not rospy.is_shutdown():
-            tag_detected = self.tag_detected()
-            if tag_detected:
+            tags_seen = self.tags_detected()
 
-                # if this is the first tag we saw or have seen
-                if (len(self.tags_seen) == 0
-                        or self.tags_seen[0] == tag_detected):
-                    self.publish_tag_odom_transform(tag_detected)
+            if len(tags_seen) > 0:
+                if self.first_tag is None:
+                    self.first_tag = tags_seen[0]
+
+                # make AR origin frame always available
+                self.publish_tag_odom_transform(self.first_tag)
 
             r.sleep()
 
