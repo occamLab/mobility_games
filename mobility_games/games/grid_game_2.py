@@ -25,7 +25,7 @@ from threading import Lock
 class Turns(object):
 
     def __init__(self):
-        rospy.init_node("grid_game")
+        rospy.init_node("grid_game_2")
         rospy.Subscriber("/tango_pose", PoseStamped,self.process_pose)
         rospy.Subscriber("/point_cloud", PointCloud,self.process_cloud)
         top = RosPack().get_path('mobility_games')
