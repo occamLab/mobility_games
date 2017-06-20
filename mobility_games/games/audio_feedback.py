@@ -20,7 +20,7 @@ from rospkg import RosPack
 class AudioFeedback(object):
     def __init__(self):
         top = RosPack().get_path('mobility_games')
-        self.sound_folder = path.join(top, 'mobility_games/auditory/sound_files')
+        self.sound_folder = path.join(top, 'auditory/sound_files')
         rospy.init_node('audio_feedback')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         self.x = None   #   x and y position of Tango

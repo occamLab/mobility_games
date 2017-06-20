@@ -1,5 +1,6 @@
 from audiolazy import *
 from song_library import *
+import math
 import numpy as np
 import rospy
 import time
@@ -120,17 +121,17 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     print("Sounds generated.")
     return np.asarray(sounds)
 
-def synth(freq, synth = sin, fade = 0.4):
+def synth(freq, synth = "sin", fade = 0.4):
     """ Generates a karplus_strong sound at a given frequency."""
     rate = 44100 # Sampling rate, in samples/second
     s, Hz = sHz(rate) # Seconds and hertz
     ms = 1e-3 * s
-    if synth == sin:
+    if synth == "sin":
         sound = saw_table(freq * Hz) * fadeout(fade*s)
-    elif synth == digitar:
-        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+    elif synth == "digitar":
+        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
     else:
-        sound = karplus_strong(freq*Hz * fadeout(fade*s))
+        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
     sound.append(zeros(Hz*(1 - fade)))
     return sound
 
