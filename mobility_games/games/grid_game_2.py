@@ -27,7 +27,7 @@ class Turns(object):
     def __init__(self):
         rospy.init_node("grid_game_2")
         rospy.Subscriber("/tango_pose", PoseStamped,self.process_pose)
-        rospy.Subscriber("/smart_wall_dist", Float64, self.process_dist)
+        rospy.Subscriber("/wall_dist", Float64, self.process_dist)
         top = RosPack().get_path('mobility_games') 
         self.sound_folder = path.join(top, 'auditory/sound_files')
         self.engine = pyttsx.init() 
@@ -106,6 +106,7 @@ class Turns(object):
                 x = self.x - current_x
                 y = self.y - current_y
                 distance = math.sqrt((x**2)+(y**2))
+                print("Wall Distance: " + str(self.dist))
                 if self.dist < 1.5:
                     degree = random.choice(self.angleList)  
                     self.turn_game(degree)
