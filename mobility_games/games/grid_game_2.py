@@ -6,7 +6,7 @@ import math
 from geometry_msgs.msg import PoseStamped, Pose, Point, Vector3
 from tf.transformations import euler_from_quaternion
 import random
-from std_msgs.msg import Header, ColorRGBA
+from std_msgs.msg import Header, ColorRGBA, Float64
 from visualization_msgs.msg import Marker
 import pyttsx
 from os import system
@@ -27,12 +27,8 @@ class Turns(object):
     def __init__(self):
         rospy.init_node("grid_game_2")
         rospy.Subscriber("/tango_pose", PoseStamped,self.process_pose)
-        rospy.Subscriber("/point_cloud", PointCloud,self.process_cloud)
-        top = RosPack().get_path('mobility_games')
-        self.m = Lock() 
-        self.cloud = None 
-        self.points = None 
-        self.pointCloud = None 
+        rospy.Subscriber("/smart_wall_dist", Float64, self.process_dist)
+        top = RosPack().get_path('mobility_games') 
         self.sound_folder = path.join(top, 'auditory/sound_files')
         self.engine = pyttsx.init() 
         self.dingNoise = pw.Wav(path.join(self.sound_folder, "ding.wav"))
@@ -42,7 +38,7 @@ class Turns(object):
         self.lastJumpNoise = rospy.Time.now() 
         self.lastBeepNoise = rospy.Time.now() 
         self.angleList = [90,-90,180] 
-        self.hasSpoken = False 
+        self.hasSpoken = False
 
     def process_pose(self, msg):
         self.x = msg.pose.position.x
@@ -54,27 +50,8 @@ class Turns(object):
                                         msg.pose.orientation.w])
         self.yaw = angles[2]
 
-    def process_cloud(self, msg):
-        self.m.acquire()
-        self.cloud = msg
-        self.m.release()
-
-    def find_plane(self, points):
-        seg = points.make_segmenter()
-        seg.set_optimize_coefficients(True)
-        seg.set_model_type(pcl.SACMODEL_PLANE)
-        seg.set_method_type(pcl.SAC_RANSAC)
-        seg.set_distance_threshold(0.03)
-        indices, model = seg.segment()
-
-        length = abs(model[3])
-        print length
-
-        if abs(model[3]) < 1.5:  
-            return True
-        else:
-            return False
-
+    def process_dist(self,msg):
+        self.dist = msg.data
 
     def turn_game(self,angle):
         self.yaw = None  
@@ -105,6 +82,7 @@ class Turns(object):
         self.x = None
         self.y = None
         self.yaw = None
+        self.dist = None
         r = rospy.Rate(10)
         while not self.yaw: 
             print "NONE"
@@ -114,7 +92,7 @@ class Turns(object):
             print "None"
             r.sleep()
             pass
-        straightATheGrayngle = self.yaw
+        straightAngle = self.yaw
         errorAngle = 15*math.pi/180
         current_x = self.x
         current_y = self.y
@@ -125,38 +103,24 @@ class Turns(object):
                     self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
                     self.beepNoise.play()
                     self.lastBeepNoise = rospy.Time.now()
-                if not self.cloud is None:
-                    self.m.acquire()
-                    tempList = []
-                    for point in self.cloud.points:
-                        tempList.append([point.x,point.y,point.z])
-                    self.points = np.array(tempList,dtype = np.float32)
-                    self.pointCloud = pcl.PointCloud(self.points)
-                    findPlane = self.find_plane(self.pointCloud)
-                    print findPlane
-                    if findPlane is True:
-                        turnType = random.choice(self.angleList)
-                        if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
-                            self.jumpNoise.close()
-                            self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
-                            current_x = self.x
-                            current_y = self.y
-                            self.turn_game(turnType) 
-                    else:
-                        x = self.x - current_x
-                        y = self.y - current_y
-                        dist = math.sqrt((x**2)+(y**2))
-                        if dist >= 1.5:  
-                            self.dingNoise.play()
-                            self.lastDingNoise = rospy.Time.now()
-                            degree = random.choice(self.angleList)  
-                            if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
-                                self.jumpNoise.close()
-                                self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
-                                self.turn_game(degree)  
-                            break
-                    self.m.release()
-                self.cloud = None  
+                x = self.x - current_x
+                y = self.y - current_y
+                distance = math.sqrt((x**2)+(y**2))
+                if self.dist < 1.5:
+                    degree = random.choice(self.angleList)  
+                    self.turn_game(degree)
+                    current_y = self.y
+                    current_x = self.x
+                    straightAngle = self.yaw
+                if distance >= 1.5:  
+                    self.dingNoise.play()
+                    self.lastDingNoise = rospy.Time.now()
+                    degree = random.choice(self.angleList)  
+                    if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
+                        self.jumpNoise.close()
+                        self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
+                        self.turn_game(degree)  
+                    break  
             r.sleep()
 
     def run(self):
