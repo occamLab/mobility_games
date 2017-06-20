@@ -144,12 +144,13 @@ def play(sound, player):
     rate = 44100
     player.play(sound, rate = rate)
 
-def playstream(stream, player, seconds = 1):
+def playstream(stream, player, seconds = 1, volume = 1):
     """ Plays a stream on player for seconds seconds of stream """
     rate = 44100
     s, Hz = sHz(rate)
     ms = 1e-3*s
     sound = stream.take(int(seconds*s))
+    sould = sound * volume
     player.play(sound, rate = rate)
 
 def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
