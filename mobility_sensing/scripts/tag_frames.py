@@ -19,6 +19,13 @@ class TagFrames:
         self.rotations = {}
 
     def tags_detected(self):
+        """
+        Returns
+        -------
+        tags_seen, list of str
+            the list of frame strings for the tags which
+            have been seen over the history of the listener.
+        """
         tags_seen = []
         frame_strings = self.listener.getFrameStrings()
         for frame in frame_strings:
@@ -28,14 +35,21 @@ class TagFrames:
         return tags_seen
 
     def update_AR_odom_transform(self, tag_frame):
+        """ Will cache the transform that would make AR
+        the parent node and odom as the direct child.
+        If a transform fails to lookup, an error is printed,
+        and the previous transform remains cached """
 
         if (self.listener.frameExists("odom")
                 and self.listener.frameExists(tag_frame)):
 
             try:
                 t = self.listener.getLatestCommonTime("odom", tag_frame)
+
+                # get transform to make tag_frame (parent) & odom (child)
                 trans, rot = self.listener.lookupTransform(
                         tag_frame, "odom", t)
+
                 print trans, rot
                 self.translations[tag_frame] = trans
                 self.rotations[tag_frame] = rot
@@ -46,6 +60,8 @@ class TagFrames:
                 print e
 
     def broadcast_AR_odom_transform(self):
+        """ Will broadcast the transform between parent node
+        AR with odom as the direct child """
 
         try:
             self.broadcaster.sendTransform(
@@ -55,45 +71,48 @@ class TagFrames:
                     "odom",
                     "AR")
 
-        except (tf.ExtrapolationException,
-                tf.LookupException,
-                tf.ConnectivityException,
-                KeyError) as e:
+        except (KeyError) as e:
             print e
 
-    def update_tag_AR_transform(self, child_tag):
+    def update_tag_odom_transform(self, tag_frame):
+        """ Will cache the transform that would make
+        odom the parent node and AR_x as the direct child.
+        If tf fails to lookup the transform, the exception
+        is printed, and the old transform remains cached """
 
-        if (self.listener.frameExists(child_tag)
-                and self.listener.frameExists("AR")):
+        if (self.listener.frameExists("odom")
+                and self.listener.frameExists(tag_frame)):
 
             try:
-                t = self.listener.getLatestCommonTime(child_tag, "AR")
+                t = self.listener.getLatestCommonTime("odom", tag_frame)
+
+                # get transform to make odom (parent) & tag_frame (child)
                 trans, rot = self.listener.lookupTransform(
-                        child_tag, "AR", t)
+                        "odom", tag_frame, t)
 
                 print trans, rot
-                self.translations[child_tag] = trans
-                self.rotations[child_tag] = rot
+                self.translations[tag_frame] = trans
+                self.rotations[tag_frame] = rot
 
             except (tf.ExtrapolationException,
                     tf.LookupException,
                     tf.ConnectivityException) as e:
                 print e
 
-    def broadcast_tag_AR_transform(self, child_tag):
-
+    def broadcast_tag_odom_transform(self, tag_frame):
+        """ Will broadcast the transform between parent node
+        odom with AR_x as the direct child.  Note that this
+        is a different intended TF tree structure than if
+        AR_x was a direct child of AR. """
         try:
             self.broadcaster.sendTransform(
-                    self.translations[child_tag],
-                    self.rotations[child_tag],
+                    self.translations[tag_frame],
+                    self.rotations[tag_frame],
                     rospy.get_rostime(),
-                    "AR_" + parse_tag_id(child_tag),
-                    "AR")
+                    "AR_" + parse_tag_id(tag_frame),
+                    "odom")
 
-        except (tf.ExtrapolationException,
-                tf.LookupException,
-                tf.ConnectivityException,
-                KeyError) as e:
+        except (KeyError) as e:
             print e
 
     def run(self):
@@ -107,9 +126,7 @@ class TagFrames:
                 if self.first_tag is None:
                     self.first_tag = tags_seen[0]
 
-                # update transform of first tag to odom, if possible
                 self.update_AR_odom_transform(self.first_tag)
-
                 self.broadcast_AR_odom_transform()
 
                 # handling for first_tag completed
@@ -117,10 +134,8 @@ class TagFrames:
 
                 for child_tag in tags_seen:
 
-                    # update transform of child tag to first tag, if possible
-                    self.update_tag_AR_transform(child_tag)
-
-                    self.broadcast_tag_AR_transform(child_tag)
+                    self.update_tag_odom_transform(child_tag)
+                    self.broadcast_tag_odom_transform(child_tag)
 
             r.sleep()
 
