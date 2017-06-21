@@ -38,7 +38,10 @@ def quantize(pitch, quantizetype = "scale", key = "A"):
                     "scale":[16.35, 18.35, 20.60, 21.83, 24.50, 27.59, 30.87, 32.70],
                     "M":[16.35, 20.60, 24.50, 32.70],
                     "m":[16.35, 19.45, 24.50, 32.70],
-                    "M7":[16.35, 20.60, 24.50, 30.87, 32.70]}
+                    "M7":[16.35, 20.60, 24.50, 30.87, 32.70],
+                    "dom7":[16.35, 20.60, 24.50, 29.14, 32.70],
+                    "dim7":[16.35, 19.45, 23.12, 27.50, 32.70],
+                    "m7":[16.35, 19.45, 24.50, 29.14, 32.70]}
     freqlist = quantizedict.get(quantizetype)
     C0ToNote = basepitch/freq("C0")
     freqlist = [i*C0ToNote for i in freqlist]
@@ -121,18 +124,42 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     print("Sounds generated.")
     return np.asarray(sounds)
 
-def synth(freq, synth = "sin", fade = 0.4):
+def synth(freq, synth = "sin", fade = 0.4, fadebool = True):
     """ Generates a karplus_strong sound at a given frequency."""
     rate = 44100 # Sampling rate, in samples/second
     s, Hz = sHz(rate) # Seconds and hertz
     ms = 1e-3 * s
     if synth == "sin":
-        sound = saw_table(freq * Hz) * fadeout(fade*s)
+        sound = sin_table(freq * Hz)
+    elif synth == "saw":
+        sound = saw_table(freq*Hz)
     elif synth == "digitar":
-        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
+        sound = karplus_strong(freq*Hz)
     else:
-        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
-    sound.append(zeros(Hz*(1 - fade)))
+        sound = karplus_strong(freq*Hz)
+    if fadebool:
+        sound = sound * fadeout(fade*s)
+    #print("sound: " + str(type(sound)))
+    #print("sound: " + str(type(zeros(100))))
+    #sound.append(zeros(s*1))
+    return sound
+
+def fade_out(sound, endofsound=1, fadetime = .2):
+    rate = 44100 # Sampling rate, in samples/second
+    s, Hz = sHz(rate) # Seconds and hertz
+    ms = 1e-3 * s
+    fadeoutsound = fadeout(fadetime*s)
+    newfadeoutsound = ones(s*(endofsound - fadetime)).append(fadeoutsound).append(zeros(1*s))
+    sound = sound * newfadeoutsound
+    return sound
+
+def fade_in(sound, endofsound=1, fadetime = .2):
+    rate = 44100 # Sampling rate, in samples/second
+    s, Hz = sHz(rate) # Seconds and hertz
+    ms = 1e-3 * s
+    fadeinsound = fadein(fadetime*s)
+    fadeinsound.append(ones(s*(endofsound-fadetime+1)))
+    sound = sound * fadeinsound
     return sound
 
 def player():
@@ -149,9 +176,15 @@ def playstream(stream, player, seconds = 1, volume = 1):
     rate = 44100
     s, Hz = sHz(rate)
     ms = 1e-3*s
+    stream = stream * volume
     sound = stream.take(int(seconds*s))
-    sould = sound * volume
     player.play(sound, rate = rate)
+
+def takeplus(stream, seconds):
+    rate = 44100
+    s, Hz = sHz(rate)
+    ms = 1e-3*s
+    stream.take(s*seconds)
 
 def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
     """ Plays notes from a numpy array, where notes along the first dimension
