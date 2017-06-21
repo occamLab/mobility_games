@@ -72,7 +72,7 @@ class Turns(object):
                 break  #Break from the loop
             r.sleep()
 
-    def straight(self):
+    def straight(self, boundry):
         self.x = None
         self.y = None
         self.yaw = None
@@ -87,8 +87,8 @@ class Turns(object):
             pass
         straightAngle = self.yaw
         errorAngle = 15*math.pi/180
-        current_x = self.x
-        current_y = self.y
+        loc_x = self.x
+        loc_y = self.y
         while not rospy.is_shutdown():
             if abs(angle_diff(self.yaw, straightAngle)) < errorAngle:  #Makes sure that you are walking in a straigt line
                 if rospy.Time.now() - self.lastBeepNoise > rospy.Duration(1): #Plays the beep sound every second
@@ -96,10 +96,13 @@ class Turns(object):
                     self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
                     self.beepNoise.play()
                     self.lastBeepNoise = rospy.Time.now()
-            x = self.x - current_x
-            y = self.y - current_y
+            x = self.x - loc_x
+            y = self.y - loc_y
             dist = math.sqrt((x**2)+(y**2))
-            if dist >= 1.5:  #Check to see if you have the goal of 1.5 meter
+            if(dist > boundry):
+                self.outOfBound()
+                break
+            if dist >= 150:  #Check to see if you have the goal of 1.5 meter
                 self.dingNoise.play()
                 self.lastDingNoise = rospy.Time.now()
                 degree = random.choice(self.angleList)  #Choose a random angle from the angleList
@@ -110,13 +113,31 @@ class Turns(object):
                 break
             r.sleep()
 
+    def outOfBound(self):
+        speak = "Out of Bounds"
+        self.engine.say(speak) 
+        if not self.hasSpoken: 
+            self.engine.runAndWait()
+            self.engine.say(speak)
+            self.engine.runAndWait()
+        self.hasSpoken = True
+        self.turn_game(180)
+
     def run(self):
         r = rospy.Rate(10)
+        self.x = None
+        while not self.x:  #Check to see if data is coming in
+            print "None Run Method"
+            r.sleep()
+            pass
+        boundry_x = 2 + self.x
+        boundry_y = 2 + self.y
+        border = math.sqrt((boundry_x**2) + (boundry_y**2))
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()
                 self.dingNoise = pw.Wav(path.join(node.sound_folder, "ding.wav"))
-                self.straight()
+                self.straight(border)
             r.sleep()
 
 
