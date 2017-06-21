@@ -27,6 +27,9 @@ class AudioFeedback(object):
         rospy.init_node('audio_feedback')
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
         rospy.Subscriber('/cane_tip', PoseStamped, self.process_cane_tip)
+        rospy.Subscriber('/fisheye_undistorted/tag_detections',
+                        AprilTagDetectionArray,
+                        self.tag_array)
 
         #   Set initial positions to None
         self.x = None
@@ -38,12 +41,12 @@ class AudioFeedback(object):
         self.start = False
 
         #   Associate April tag ID to different wav files.
-        self.music_dict = {0 : "ambience2.wav"}
-        self.music_list = []
+        self.tag_to_music_file = {0 : "ambience2.wav"}
+        self.tag_to_music_object = {}
 
-        for tag_id in self.music_dict:
+        for tag_id in self.tag_to_music_file:
             #   Create wav object of each track in music_dict
-            self.music_list.append(pw.Wav(os.path.join(self.sound_folder, self.music_dict[tag_id])))
+            self.tag_to_music_object[tag_id] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[tag_id]))
 
 
     def process_pose(self, msg):
@@ -71,6 +74,41 @@ class AudioFeedback(object):
                                         msg.pose.orientation.z,
                                         msg.pose.orientation.w])
 
+    def tag_array(self, msg):
+        """ Processes the april tags currently in Tango's view.
+            Adds a four-integer tuple to self.tag_list for each tag detected,
+            which includes x, y, and z coordinates and the tag id. """
+
+        self.tag_list = []
+        self.orientation_list = []
+        self.id_list = []
+
+        #TODO Add a wait for transform and remove try/except
+        #   Occasionally, transform will give error because of differences in
+        #   timestamp. The except provides tag ID without using tf.
+        try:
+            for item in msg.detections:
+                newitem = self.listener.transformPose('odom', item.pose)
+                x = newitem.pose.position.x
+                y = newitem.pose.position.y
+                z = newitem.pose.position.z
+                tag_id = item.id
+                self.tag_list.append((x, y, z, tag_id))
+                self.tag_dict[tag_id] = (x, y, z)
+                angles = euler_from_quaternion([newitem.pose.orientation.x,
+                                                newitem.pose.orientation.y,
+                                                newitem.pose.orientation.z,
+                                                newitem.pose.orientation.w])
+                self.orientation_list.append(angles)
+                self.id_list.append(tag_id)
+        except:
+            for item in msg.detections:
+                x = None
+                y = None
+                z = None
+                tag_id = item.id
+                self.tag_list.append((x, y, z, tag_id))
+                self.id_list.append(tag_id)
 
     def run_wav(self):
         """ Plays a wav file while the user is sweeping the cane consistently.
@@ -93,16 +131,17 @@ class AudioFeedback(object):
                 self.cane_y_prev = self.cane_y
                 last_sweep = rospy.Time.now()
                 should_play = False
-                playing = False
+                playing = -1
                 tag = 0
 
                 print("Connection established.")
 
             if self.start:
+                visible_tag = 0
 
                 #   If the cane has passed the midline (y = 0), start music
                 if self.cane_y * self.cane_y_prev <= 0:
-                    should_play = True
+                    should_play = visible_tag
                     last_sweep = rospy.Time.now()
 
                 #   Note previous cane position
@@ -111,23 +150,27 @@ class AudioFeedback(object):
 
                 #   If no sweep in X seconds, stop music
                 if rospy.Time.now() - last_sweep > rospy.Duration(2.0):
-                    should_play = False
+                    should_play = -1
 
                 #   Play music if it should be playing
-                if not playing and should_play:
-                    self.music_list[tag].play()
+                if playing == -1 and should_play:
+                    self.tag_to_music_object[visible_tag].play()
                     playing = True
 
                 #   Pause music if it should be paused
-                if not should_play and playing:
-                    self.music_list[tag].pause()
-                    playing = False
+                if not should_play and playing >= 0:
+                    self.tag_to_music_object[tag].pause()
+                    playing = -1
+
+                for tag in self.tag_to_music_object:
+                    if self.tag_to_music_object[tag].stream.is_active() and tag != visible_tag:
+                        self.tag_to_music_object[tag].pause()
 
                 #   Loop music if it has reached the end of the track
-                if not self.music_list[tag].stream.is_active() and playing:
-                    self.music_list[tag].close()
-                    self.music_list[tag] = pw.Wav(os.path.join(self.sound_folder, self.music_dict[tag]))
-                    self.music_list[tag].play()
+                if not self.tag_to_music_object[tag].stream.is_active() and playing:
+                    self.tag_to_music_object[tag].close()
+                    self.tag_to_music_object[tag] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[tag]))
+                    self.tag_to_music_object[tag].play()
 
             #   Run at 10 loops per second
             r.sleep()
