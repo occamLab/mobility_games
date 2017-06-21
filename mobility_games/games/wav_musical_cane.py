@@ -140,16 +140,26 @@ class AudioFeedback(object):
                 print("Connection established.")
                 print("Cane found.")
 
+                sweep_width = 0.6
+                cane_points = [-sweep_width/2.0, sweep_width/2.0]
+                offset_selection = 0
+
             if self.start:
 
                 if len(self.id_list):
                     visible_tag = self.id_list[0]
-                #print(". . . . .")
+
+                #   Determine the next point the cane should reach
+                offset = cane_points[offset_selection]
 
                 #   If the cane has passed the midline (y = 0), start music
-                if self.cane_y * self.cane_y_prev <= 0:
+                if (self.cane_y - offset) * (self.cane_y_prev - offset) <= 0:
                     should_play = visible_tag
                     last_sweep = rospy.Time.now()
+                    print("Reached point %s." % offset_selection)
+                    offset_selection += 1
+                    if offset_selection >= len(cane_points):
+                        offset_selection = 0
 
                 #   Note previous cane position
                 if self.cane_y_prev != self.cane_y:
