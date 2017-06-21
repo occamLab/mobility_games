@@ -4,6 +4,7 @@ import rospy
 from mobility_games.auditory import play_wav as pw
 from geometry_msgs.msg import PoseStamped, Pose, Point, Vector3
 from tf.transformations import euler_from_quaternion
+from apriltags_ros.msg import AprilTagDetectionArray
 import math
 from std_msgs.msg import Header, ColorRGBA
 import random
@@ -41,7 +42,7 @@ class AudioFeedback(object):
         self.start = False
 
         #   Associate April tag ID to different wav files.
-        self.tag_to_music_file = {0 : "ambience2.wav"}
+        self.tag_to_music_file = {3 : "ambience2.wav", 12 : "generic_music.wav"}
         self.tag_to_music_object = {}
 
         for tag_id in self.tag_to_music_file:
@@ -116,6 +117,8 @@ class AudioFeedback(object):
 
         r = rospy.Rate(10)
         print("Searching for Tango...")
+        print("Searching for AR tags...")
+        visible_tag = 0
 
         while not rospy.is_shutdown():
 
@@ -130,14 +133,18 @@ class AudioFeedback(object):
                 self.start = True
                 self.cane_y_prev = self.cane_y
                 last_sweep = rospy.Time.now()
-                should_play = False
+                should_play = -1
                 playing = -1
                 tag = 0
 
                 print("Connection established.")
+                print("Cane found.")
 
             if self.start:
-                visible_tag = 0
+
+                if len(self.id_list):
+                    visible_tag = self.id_list[0]
+                #print(". . . . .")
 
                 #   If the cane has passed the midline (y = 0), start music
                 if self.cane_y * self.cane_y_prev <= 0:
@@ -153,24 +160,24 @@ class AudioFeedback(object):
                     should_play = -1
 
                 #   Play music if it should be playing
-                if playing == -1 and should_play:
-                    self.tag_to_music_object[visible_tag].play()
-                    playing = True
+                if playing != should_play and should_play >= 0:
+                    self.tag_to_music_object[should_play].play()
+                    playing = should_play
 
                 #   Pause music if it should be paused
-                if not should_play and playing >= 0:
-                    self.tag_to_music_object[tag].pause()
+                if should_play == -1 and playing >= 0:
+                    self.tag_to_music_object[playing].pause()
                     playing = -1
 
                 for tag in self.tag_to_music_object:
-                    if self.tag_to_music_object[tag].stream.is_active() and tag != visible_tag:
+                    if self.tag_to_music_object[tag].stream.is_active() and tag != playing:
                         self.tag_to_music_object[tag].pause()
 
                 #   Loop music if it has reached the end of the track
-                if not self.tag_to_music_object[tag].stream.is_active() and playing:
-                    self.tag_to_music_object[tag].close()
-                    self.tag_to_music_object[tag] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[tag]))
-                    self.tag_to_music_object[tag].play()
+                if playing >= 0 and not self.tag_to_music_object[playing].stream.is_active():
+                    self.tag_to_music_object[playing].close()
+                    self.tag_to_music_object[playing] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[visible_tag]))
+                    self.tag_to_music_object[playing].play()
 
             #   Run at 10 loops per second
             r.sleep()

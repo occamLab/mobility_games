@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <!-- image_proc removes camera distortion from the raw image stream.
-  its unncessary if we are using fisheye undistorted --> 
+  its unncessary if we are using fisheye undistorted -->
   <!-- <node pkg="image_proc" type="image_proc" name="image_projector" ns="fisheye_undistorted"/> -->
 
   <node pkg="apriltags_ros" type="apriltag_detector_node" name="apriltag_detector" output="screen" ns="fisheye_undistorted">
@@ -24,7 +24,8 @@
       {id: 0, size: 0.055},
       {id: 1, size: 0.055},
       {id: 2, size: 0.055},
-      {id: 3, size: 0.055}]
+      {id: 3, size: 0.055},
+      {id: 12, size: 0.055}]
     </rosparam>
   </node>
 
