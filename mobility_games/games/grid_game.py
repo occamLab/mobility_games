@@ -46,7 +46,8 @@ class Turns(object):
                                         msg.pose.orientation.z,
                                         msg.pose.orientation.w])
         self.yaw = angles[2]
-
+    
+    #This funcation make you turn onve reach the goal distance
     def turn_game(self,angle):
         self.yaw = None  
         sound = {90:"Turn Left", -90:"Turn right", 180:"Turn around"}
@@ -72,6 +73,7 @@ class Turns(object):
                 break  #Break from the loop
             r.sleep()
 
+    #This function make walk in a straight line
     def straight(self, boundry):
         self.x = None
         self.y = None
@@ -113,6 +115,7 @@ class Turns(object):
                 break
             r.sleep()
 
+    #This function make you turn if you are out of  bounds
     def outOfBound(self):
         speak = "Out of Bounds"
         self.engine.say(speak) 
@@ -123,6 +126,7 @@ class Turns(object):
         self.hasSpoken = True
         self.turn_game(180)
 
+    #This function just run the program
     def run(self):
         r = rospy.Rate(10)
         self.x = None
