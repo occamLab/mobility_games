@@ -131,12 +131,13 @@ class Turns(object):
                 distance = math.sqrt((x**2)+(y**2))
                 print("Wall Distance: " + str(self.dist))
                 #If a wall is within 1.5 meter make you turn
-                if self.dist < 1.5:
+                if self.dist < 1.5 and self.dist > 0:
                     degree = random.choice(self.angleList)  
-                    self.turn_game(degree)
-                    pos_y = self.y
-                    pos_x = self.x
-                    straightAngle = self.yaw
+                    if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
+                        self.jumpNoise.close()
+                        self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
+                        self.turn_game(degree)  
+                    break 
                 #Once you walk 1.5 meter makes you turn
                 if distance >= 1.5:  
                     self.dingNoise.play()

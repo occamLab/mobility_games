@@ -209,6 +209,7 @@ class plane_finder(object):
 
 
                 self.actualP = None #reset pointcloud, so as to not accidentally do the same pointcloud twice and wait for the next one from the phone
+                self.walldist = -1
                 self.m.release()
 
             r.sleep() #wait until next iteration
