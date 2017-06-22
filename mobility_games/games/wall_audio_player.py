@@ -4,15 +4,19 @@ import rospy
 from std_msgs.msg import Float64
 import math
 import mobility_games.auditory.audio_controller as ac
-from os import system
+from os import system, path
 import random
 from dynamic_reconfigure.server import Server
 from mobility_games.cfg import WallAudioConfig
+from rospkg import RosPack
+import mobility_games.auditory.play_wav as pw
 
 class wall_audio_player(object):
     def __init__(self):
+        top = RosPack().get_path("mobility_games")
         rospy.init_node('smart_wall_audio')
         rospy.Subscriber('/smart_wall_dist', Float64, self.get_dist)
+        self.dingsound = path.join(top, 'auditory/sound_files/ding.wav')
         srv = Server(WallAudioConfig, self.config_callback)
         #self.gmode = rospy.get_param('~pc_audio_gmode', 'pvr')
         self.pitch = rospy.get_param('~pc_pitch', True)
@@ -52,13 +56,17 @@ class wall_audio_player(object):
     def run(self):
         #self.r =  #Attempts to run at a rate of 10 times a second (although never reaches this speed)
         #self.dist = 0
+        rewardsound=pw.Wav(self.dingsound)
         while not rospy.is_shutdown(): #Start main while loop
             #self.dist = random.random()*4
             if not self.dist is None:
                 #if rospy.Time.now()-self.last_sound_time > rospy.Duration(.01) and self.walldist is not 0: #If it's been longer than 2 seconds since last sound, and the wall distance is greater than half a meter
                 self.last_sound_time = rospy.Time.now() #reset sound time
                 if abs(self.dist) < self.altsounddist and self.ding:
-                    system("aplay ../auditory/sound_files/ding.wav")
+                    rewardsound.close()
+                    rewardsound=pw.Wav(self.dingsound)
+                    rewardsound.play()
+
                 else:
                     freq = ac.freq('C5')
                     vol = .8
