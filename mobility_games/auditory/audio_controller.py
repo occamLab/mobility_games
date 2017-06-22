@@ -42,7 +42,7 @@ def quantize(pitch, quantizetype = "scale", key = "A"):
                     "dom7":[16.35, 20.60, 24.50, 29.14, 32.70],
                     "dim7":[16.35, 19.45, 23.12, 27.50, 32.70],
                     "m7":[16.35, 19.45, 24.50, 29.14, 32.70]}
-    freqlist = quantizedict.get(quantizetype)
+    freqlist = quantizedict.get(quantizetype, quantizedict["chromatic"])
     C0ToNote = basepitch/freq("C0")
     freqlist = [i*C0ToNote for i in freqlist]
     #print(freqlist)

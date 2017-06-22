@@ -10,7 +10,7 @@ from dynamic_reconfigure.server import Server
 from mobility_games.cfg import WallAudioConfig
 
 class wall_audio_player(object):
-    def __init__(self, rewardmode):
+    def __init__(self):
         rospy.init_node('smart_wall_audio')
         rospy.Subscriber('/smart_wall_dist', Float64, self.get_dist)
         srv = Server(WallAudioConfig, self.config_callback)
@@ -20,13 +20,14 @@ class wall_audio_player(object):
         self.speed = rospy.get_param('~pc_rate', True)
         self.track = rospy.get_param('~pc_track', False)
         self.ding = rospy.get_param('~pc_ding', False)
-        self.rmode = rewardmode
+        self.randrange = rospy.get_param('~pc_randrange', 1);
+        self.quantizetype = rospy.get_param('~pc_quanttype', 'dom7')
+        self.key = rospy.get_param('~pc_key', 'A')
         self.last_sound_time = rospy.Time.now() #Initialize the last time a sound was made
         self.dist = None
         self.player = ac.player() #play the sound.
         self.altsounddist = .5;
         self.rate = 1.0/20.0;
-        self.randrange = 1;
         self.r = rospy.Rate(1.0/self.rate);
 
     def config_callback(self, config, level):
@@ -35,6 +36,9 @@ class wall_audio_player(object):
         self.speed = config['pc_rate']
         self.track = config['pc_track']
         self.ding = config['pc_ding']
+        self.quantizetype = config['pc_quanttype']
+        self.key = config['pc_key']
+        self.randrange = config['pc_randrange']
         return config
 
     def get_dist(self, msg):
@@ -56,8 +60,8 @@ class wall_audio_player(object):
                 if abs(self.dist) < self.altsounddist and self.ding:
                     system("aplay ../auditory/sound_files/ding.wav")
                 else:
-                    freq = ac.freq('A4')
-                    vol = .15
+                    freq = ac.freq('C5')
+                    vol = .8
                     music = None
                     seconds = 5*self.rate
                     fadeinendtime = 1.0*self.rate
@@ -65,18 +69,18 @@ class wall_audio_player(object):
                     fadeintime = .2*self.rate
                     fadeouttime = .2*self.rate
                     #print("rate: " + str(self.rate))
-                    if (self.track):
+                    #if (self.track):
                         #Do Music Tracks based on distance, further away = less music
-                        pass
+                    #    pass
                     if (self.pitch):#self.gmode.contains('p')):
                         #print("wowowowow")
                         freq = max(min(100*math.exp((abs(self.dist+random.random()*self.randrange)-self.altsounddist)/1.6)+65.4*2, 2092.8), 65.4*2)*2 #set frequency based on distance
-                        if self.dist < .7:
-                            freq = ac.quantize(freq, quantizetype = "M", key="C")
-                        elif self.dist < 1.4:
-                            freq = ac.quantize(freq, quantizetype = "dom7", key="G")
-                        else:
-                            freq = ac.quantize(freq, quantizetype = "m7", key="D")
+                        #if self.dist < .7:
+                        #    freq = ac.quantize(freq, quantizetype = "M", key="C")
+                        #elif self.dist < 1.4:
+                        #    freq = ac.quantize(freq, quantizetype = "dom7", key="G")
+                        #else:
+                        freq = ac.quantize(freq, quantizetype = self.quantizetype, key=self.key)
                         #print (freq)
                     if (self.vol):
                         vol = (.8/(1+math.exp((self.dist)/1.5-1))+.2)*vol#insert volume function here. that goes from 1 to 0 with increasing distance to wall.
@@ -92,5 +96,5 @@ class wall_audio_player(object):
             self.r.sleep() #wait until next iteration
 
 if __name__ == '__main__': #Run Code
-    node = wall_audio_player('noding')
+    node = wall_audio_player()
     node.run()
