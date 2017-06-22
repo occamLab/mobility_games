@@ -1,0 +1,10 @@
+<launch>
+<include file="$(find tango_streamer)/launch/stream.launch">
+</include>
+<node name="smart_wall_audio" pkg="mobility_games" type="wall_audio_player.py" output="screen">
+  <param name="pc_audio_gmode" type="str" value="pvr"/>
+</node>
+<node name="close_wall_finder" pkg="mobility_sensing" type="ClosestWallFinder.py" output="screen">
+</node>
+<!--<rosparam command="load" file="$(find reconfigure_tutorial)/scripts/goodparams.yaml"/>-->
+</launch>
