@@ -129,11 +129,15 @@ def synth(freq, synth = "sin", fade = 0.4):
     if synth == "sin":
         sound = saw_table(freq * Hz) * fadeout(fade*s)
     elif synth == "digitar":
-        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
+        sound = karplus_strong(freq*Hz)# * fadeout(fade*s))
     else:
-        sound = karplus_strong(freq*Hz) * fadeout(fade*s)
+        sound = karplus_strong(freq*Hz)# * fadeout(fade*s))
     sound.append(zeros(Hz*(1 - fade)))
     return sound
+
+    #TODO fix bug where script will crash at specific tempos when fadeout is
+    #   applied. I think this is because the fadeout actually shortens the
+    #   length of the audio sample, causing gaps at slower tempos.
 
 def player():
     """ Generates the player object."""
