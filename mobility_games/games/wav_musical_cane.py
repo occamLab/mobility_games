@@ -45,9 +45,20 @@ class AudioFeedback(object):
         self.tag_to_music_file = {3 : "ambience2.wav", 12 : "generic_music.wav"}
         self.tag_to_music_object = {}
 
+        self.tag_to_sound_file = {3 : "ding.wav", 12 : "beep.wav"}
+        self.tag_to_sound_object = {}
+
         for tag_id in self.tag_to_music_file:
-            #   Create wav object of each track in music_dict
-            self.tag_to_music_object[tag_id] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[tag_id]))
+            #   Create wav object of each track in music object dictionary
+            self.tag_to_music_object[tag_id] = \
+                pw.Wav(os.path.join(self.sound_folder,
+                self.tag_to_music_file[tag_id]))
+
+        for tag_id in self.tag_to_sound_file:
+            #   Create wav obejct of each sound file in sound disctionary
+            self.tag_to_sound_object[tag_id] = \
+                pw.Wav(os.path.join(self.sound_folder,
+                self.tag_to_music_file[tag_id]))
 
 
     def process_pose(self, msg):
@@ -111,10 +122,11 @@ class AudioFeedback(object):
                 self.tag_list.append((x, y, z, tag_id))
                 self.id_list.append(tag_id)
 
-    def run_wav(self):
+    def run_wav(self, mode = "music"):
         """ Plays a wav file while the user is sweeping the cane consistently.
             Pauses music when the cane stops, and resumes when it continues. """
 
+        self.mode = mode
         r = rospy.Rate(10)
         print("Searching for Tango...")
         print("Searching for AR tags...")
@@ -133,19 +145,24 @@ class AudioFeedback(object):
                 self.start = True
                 self.cane_y_prev = self.cane_y
                 last_sweep = rospy.Time.now()
+                tag = 0
+
+                #   Keep track of which tag's audio should be playing and is
+                #   currently playing. -1 means no tags are applicable.
                 should_play = -1
                 playing = -1
-                tag = 0
 
                 print("Connection established.")
                 print("Cane found.")
 
+                #   Set parameters for cane sweeping.
                 sweep_width = 0.6
                 cane_points = [-sweep_width/2.0, sweep_width/2.0]
                 offset_selection = 0
 
             if self.start:
 
+                #   Selects the first tag in view
                 if len(self.id_list):
                     visible_tag = self.id_list[0]
 
@@ -161,12 +178,24 @@ class AudioFeedback(object):
                     if offset_selection >= len(cane_points):
                         offset_selection = 0
 
+                    #   If in sound mode, play corresponding sound
+                    if self.mode == "sound":
+                        self.tag_to_sound_object[should_play].close()
+                        self.tag_to_sound_object[should_play] = \
+                            pw.Wav(os.path.join(self.sound_folder,
+                            self.tag_to_sound_file[should_play]))
+                        self.tag_to_sound_object[should_play].play()
+
                 #   Note previous cane position
                 if self.cane_y_prev != self.cane_y:
                     self.cane_y_prev = self.cane_y
 
                 #   If no sweep in X seconds, stop music
                 if rospy.Time.now() - last_sweep > rospy.Duration(2.0):
+                    should_play = -1
+
+                #   Music should not play if not in music mode
+                if self.mode != "music":
                     should_play = -1
 
                 #   Play music if it should be playing
@@ -179,14 +208,19 @@ class AudioFeedback(object):
                     self.tag_to_music_object[playing].pause()
                     playing = -1
 
+                #   Stop playing music to tags other than current one
                 for tag in self.tag_to_music_object:
-                    if self.tag_to_music_object[tag].stream.is_active() and tag != playing:
+                    if self.tag_to_music_object[tag].stream.is_active() and \
+                            tag != playing:
                         self.tag_to_music_object[tag].pause()
 
                 #   Loop music if it has reached the end of the track
-                if playing >= 0 and not self.tag_to_music_object[playing].stream.is_active():
+                if playing >= 0 and not \
+                        self.tag_to_music_object[playing].stream.is_active():
                     self.tag_to_music_object[playing].close()
-                    self.tag_to_music_object[playing] = pw.Wav(os.path.join(self.sound_folder, self.tag_to_music_file[visible_tag]))
+                    self.tag_to_music_object[playing] = \
+                        pw.Wav(os.path.join(self.sound_folder,
+                        self.tag_to_music_file[visible_tag]))
                     self.tag_to_music_object[playing].play()
 
             #   Run at 10 loops per second
@@ -195,4 +229,4 @@ class AudioFeedback(object):
 
 if __name__ == '__main__':
     node = AudioFeedback()
-    node.run_wav()
+    node.run_wav("sound")
