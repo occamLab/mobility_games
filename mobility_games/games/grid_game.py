@@ -104,7 +104,7 @@ class Turns(object):
             if(dist > boundry):
                 self.outOfBound()
                 break
-            if dist >= 150:  #Check to see if you have the goal of 1.5 meter
+            if dist >= 2:  #Check to see if you have the goal of 1.5 meter
                 self.dingNoise.play()
                 self.lastDingNoise = rospy.Time.now()
                 degree = random.choice(self.angleList)  #Choose a random angle from the angleList
@@ -134,8 +134,8 @@ class Turns(object):
             print "None Run Method"
             r.sleep()
             pass
-        boundry_x = 2 + self.x
-        boundry_y = 2 + self.y
+        boundry_x = 5 + self.x
+        boundry_y = 5 + self.y
         border = math.sqrt((boundry_x**2) + (boundry_y**2))
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
