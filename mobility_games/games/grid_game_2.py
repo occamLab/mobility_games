@@ -139,7 +139,7 @@ class Turns(object):
                         self.turn_game(degree)  
                     break 
                 #Once you walk 1.5 meter makes you turn
-                if distance >= 1.5:  
+                if distance >= 2:  
                     self.dingNoise.play()
                     self.lastDingNoise = rospy.Time.now()
                     degree = random.choice(self.angleList)  
