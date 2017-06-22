@@ -178,6 +178,7 @@ class ClosestWallFinder(object):
                     print "wall_distance: " + str(abs(self.walldist)) #print the current wall distance
                     self.pub.publish(actualPCopy)
                     self.dist_pub.publish(self.walldist)
+
                     if (self.visualized and self.linepoints):
                         self.vis_pub.publish(Marker(header=Header(frame_id="odom", stamp=self.actualP.header.stamp),
                                                     type=Marker.LINE_LIST,
