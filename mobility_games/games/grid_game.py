@@ -76,7 +76,7 @@ class Turns(object):
             r.sleep()
 
     #This function make walk in a straight line
-    def straight(self, border_x, border_y):
+    def straight(self, start_x, start_y):
         self.x = None
         self.y = None
         self.yaw = None
@@ -102,13 +102,7 @@ class Turns(object):
                     self.lastBeepNoise = rospy.Time.now()
                 x = self.x - loc_x
                 y = self.y - loc_y
-                out_x = self.x - border_x
-                out_y = self.y - border_y
-                outside = math.sqrt((out_x**2)+(out_y**2))
                 dist = math.sqrt((x**2)+(y**2))
-                if(outside > 5):
-                    self.outOfBound(border_x, border_y)
-                    break
                 if dist >= 2:  #Check to see if you have the goal of 1.5 meter
                     self.dingNoise.play()
                     self.lastDingNoise = rospy.Time.now()
@@ -118,6 +112,12 @@ class Turns(object):
                         self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
                         self.turn_game(degree)  #Enter in the turn game method
                     break
+            out_x = self.x - start_x
+            out_y = self.y - start_y
+            outside = math.sqrt((out_x**2)+(out_y**2))
+            if(outside > 5):
+                self.outOfBound(start_x, start_y)
+                break
             r.sleep()
 
     #This function make you turn if you are out of  bounds
@@ -171,13 +171,13 @@ class Turns(object):
             print "None Run Method"
             r.sleep()
             pass
-        boundry_x = self.x
-        boundry_y = self.y
+        starting_pos_x = self.x
+        starting_pos_y = self.y
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()
                 self.dingNoise = pw.Wav(path.join(node.sound_folder, "ding.wav"))
-                self.straight(boundry_x, boundry_y)
+                self.straight(starting_pos_x, starting_pos_y)
             r.sleep()
 
 
