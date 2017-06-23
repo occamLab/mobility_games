@@ -156,7 +156,7 @@ class AudioFeedback(object):
                 print("Cane found.")
 
                 #   Set parameters for cane sweeping.
-                sweep_width = 0.6
+                sweep_width = 0.5
                 cane_points = [-sweep_width/2.0, sweep_width/2.0]
                 offset_selection = 0
 
@@ -164,7 +164,8 @@ class AudioFeedback(object):
 
                 #   Selects the first tag in view
                 if len(self.id_list):
-                    visible_tag = self.id_list[0]
+                    if self.id_list[0] in self.tag_to_music_object:
+                        visible_tag = self.id_list[0]
 
                 #   Determine the next point the cane should reach
                 offset = cane_points[offset_selection]
@@ -229,4 +230,4 @@ class AudioFeedback(object):
 
 if __name__ == '__main__':
     node = AudioFeedback()
-    node.run_wav("sound")
+    node.run_wav("music")
