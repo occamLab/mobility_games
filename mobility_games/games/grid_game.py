@@ -31,9 +31,11 @@ class Turns(object):
         self.dingNoise = pw.Wav(path.join(self.sound_folder, "ding.wav"))
         self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
         self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
+        self.beep2Noise = pw.Wav(path.join(self.sound_folder, "beep2.wav"))
         self.lastDingNoise = rospy.Time.now()
         self.lastJumpNoise = rospy.Time.now()
         self.lastBeepNoise = rospy.Time.now()
+        self.lastBeep2Noise = rospy.Time.now()
         self.angleList = [90,-90,180]
         self.hasSpoken = False
 
@@ -74,7 +76,7 @@ class Turns(object):
             r.sleep()
 
     #This function make walk in a straight line
-    def straight(self, boundry):
+    def straight(self, border_x, border_y):
         self.x = None
         self.y = None
         self.yaw = None
@@ -98,25 +100,28 @@ class Turns(object):
                     self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
                     self.beepNoise.play()
                     self.lastBeepNoise = rospy.Time.now()
-            x = self.x - loc_x
-            y = self.y - loc_y
-            dist = math.sqrt((x**2)+(y**2))
-            if(dist > boundry):
-                self.outOfBound()
-                break
-            if dist >= 2:  #Check to see if you have the goal of 1.5 meter
-                self.dingNoise.play()
-                self.lastDingNoise = rospy.Time.now()
-                degree = random.choice(self.angleList)  #Choose a random angle from the angleList
-                if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
-                    self.jumpNoise.close()
-                    self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
-                    self.turn_game(degree)  #Enter in the turn game method
-                break
+                x = self.x - loc_x
+                y = self.y - loc_y
+                out_x = self.x - border_x
+                out_y = self.y - border_y
+                outside = math.sqrt((out_x**2)+(out_y**2))
+                dist = math.sqrt((x**2)+(y**2))
+                if(outside > 5):
+                    self.outOfBound(border_x, border_y)
+                    break
+                if dist >= 2:  #Check to see if you have the goal of 1.5 meter
+                    self.dingNoise.play()
+                    self.lastDingNoise = rospy.Time.now()
+                    degree = random.choice(self.angleList)  #Choose a random angle from the angleList
+                    if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
+                        self.jumpNoise.close()
+                        self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
+                        self.turn_game(degree)  #Enter in the turn game method
+                    break
             r.sleep()
 
     #This function make you turn if you are out of  bounds
-    def outOfBound(self):
+    def outOfBound(self, start_x, start_y):
         speak = "Out of Bounds"
         self.engine.say(speak) 
         if not self.hasSpoken: 
@@ -124,7 +129,39 @@ class Turns(object):
             self.engine.say(speak)
             self.engine.runAndWait()
         self.hasSpoken = True
-        self.turn_game(180)
+        normal = [start_x - self.x, start_y - self.y]
+        theta = [0, 90, 180 , -90]
+        best_angle = 0
+        best_dotprod = -1
+        for i in range(len(theta)):
+            goal_angle = self.yaw + theta[i]*math.pi/180
+            unit = [math.cos(goal_angle), math.sin(goal_angle)]
+            dotprod = normal[0] * unit[0] + normal[1] * unit[1]
+            if dotprod > best_dotprod:
+                best_dotprod = dotprod
+                best_angle = theta[i]
+        if rospy.Time.now() - self.lastJumpNoise > rospy.Duration(2):
+            self.jumpNoise.close()
+            self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
+            self.turn_game(best_angle)
+        x_1 = self.x
+        y_1 = self.y
+        dist = 0
+        straightAngle = self.yaw
+        errorAngle = 15*math.pi/180
+        self.engine.say("Walk Straight")
+        while dist < 1:
+            if abs(angle_diff(self.yaw, straightAngle)) < errorAngle:  #Makes sure that you are walking in a straigt line
+                if rospy.Time.now() - self.lastBeep2Noise > rospy.Duration(1): #Plays the beep sound every second
+                    self.beep2Noise.close()
+                    self.beep2Noise = pw.Wav(path.join(self.sound_folder, "beep2.wav"))
+                    self.beep2Noise.play()
+                    self.lastBeep2Noise = rospy.Time.now()
+                x_2 = self.x - x_1
+                y_2 = self.y - y_1
+                dist = math.sqrt((x_2**2)+(y_2**2)) 
+
+
 
     #This function just run the program
     def run(self):
@@ -134,14 +171,13 @@ class Turns(object):
             print "None Run Method"
             r.sleep()
             pass
-        boundry_x = 5 + self.x
-        boundry_y = 5 + self.y
-        border = math.sqrt((boundry_x**2) + (boundry_y**2))
+        boundry_x = self.x
+        boundry_y = self.y
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()
                 self.dingNoise = pw.Wav(path.join(node.sound_folder, "ding.wav"))
-                self.straight(border)
+                self.straight(boundry_x, boundry_y)
             r.sleep()
 
 
