@@ -158,6 +158,10 @@ def fade_in(sound, endofsound=1, fadetime = .2):
     sound = sound * fadeinsound
     return sound
 
+    #TODO fix bug where script will crash at specific tempos when fadeout is
+    #   applied. I think this is because the fadeout actually shortens the
+    #   length of the audio sample, causing gaps at slower tempos.
+
 def player():
     """ Generates the player object."""
     return AudioIO(True)
@@ -177,10 +181,14 @@ def playstream(stream, player, seconds = 1, volume = 1):
     player.play(sound, rate = rate)
 
 def takeplus(stream, seconds):
+    """
+    The merge appears to have messed up this function.  Don't remember what it originally did, but wasn't super important
+    """
     rate = 44100
     s, Hz = sHz(rate)
     ms = 1e-3*s
-    stream.take(s*seconds)
+    a = stream.take(s*seconds)
+    return a
 
 def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
     """ Plays notes from a numpy array, where notes along the first dimension

@@ -8,7 +8,7 @@ import pcl
 import tf
 from threading import Lock
 import time
-from std_msgs.msg import Header, ColorRGBA
+from std_msgs.msg import Header, ColorRGBA, Float64
 from visualization_msgs.msg import Marker
 from os import system
 #import copy
@@ -31,7 +31,7 @@ class plane_finder(object):
         self.pub = rospy.Publisher('/wall_finder', PointCloud, queue_size=10) #Be ready to publish pointclouds to plane_finder, cloud_transformed, and plane_lines
         #self.pub_transformed = rospy.Publisher('/cloud_transformed', PointCloud, queue_size=10)
         self.vis_pub = rospy.Publisher('/wall_viz', Marker, queue_size=10)
-
+        self.dis_pub = rospy.Publisher("/wall_dist", Float64, queue_size = 10)
         self.listener = tf.TransformListener() #Initialize Transformer class that allows for easy coordinate frame transformations
         self.CurrP = None #Initialize Point List
         self.actualP = None #Initialize Point_Cloud from Tango
@@ -47,7 +47,7 @@ class plane_finder(object):
         self.altsounddist = .5; #distance up to which there is no sound difference
         #self.untransformed_saved_plane_model = None; #Initialize untransformed version of saved plane
         #self.position = None; #Initialize current phone location
-        #self.walldist = 0; #Initialize Distance to Wall
+        self.walldist = 0; #Initialize Distance to Wall
         self.last_sound_time = rospy.Time.now(); #Initialize the last time a sound was made
         self.linelength = 3 #Determines length of drawn line in rviz
         self.linepoints = [] #Initialize line points for wall drawing in rviz
@@ -97,95 +97,95 @@ class plane_finder(object):
                     seg.set_method_type(pcl.SAC_RANSAC) #Set method for finding plane to RANSAC algorithm
                     seg.set_distance_threshold(.03) #Not sure what this is
                     #match = False #The variable that determines if the previous plane is the same plane as found now.
-                #try: #Start Try statment (a lot can go wrong in the following code from timing issues, to not having enough data to set a plane.  In the end, the try except is just a much easier and probably quicker way to skip the current iteration and move to the next one)
-                    for i in range(self.planetrynum): #Continue trying to find planes for self.planetrynum times.
-                        #check = False #variable that determines if code should check if the current wall or previous wall is closer.
-                        #usesave = None #variable that determines whether or not to use the current wall or the previous wall.
-                        indices, plane_model = seg.segment() #Receive plane_model [a, b, c, d] for equation (ax + by + cz + d = 0), also receive indices in the plane
-                        #if self.saved_plane_model is not None : #If there is a previous plane
-                        #    if (abs(plane_model[0]-self.saved_plane_model[0]) < self.abc_match_threshold and
-                        #        abs(plane_model[1]-self.saved_plane_model[1]) < self.abc_match_threshold and
-                        #        abs(plane_model[2]-self.saved_plane_model[2]) < self.abc_match_threshold and
-                        #        abs(plane_model[3]-self.saved_plane_model[3]) < self.d_match_threshold): #See if current plane is relatively close to previous plane
-                        #        match = True #The walls match
-                        #    else:
-                        #        check = True #The walls don't match and we should find which is closer.
-                        if len(indices) < self.robustThreshold: #If the wall isn't robust enough
-                            print("No Robust Planes") #Print that the wall is bad
-                            #if self.saved_plane_model: #if there is a saved_plane_model
-                            #    newdist = self.plane_distance(self.saved_plane_model, self.position) #Use saved_plane_model
-                            #else: #otherwise
-                            #    newdist = None #set distance to none
-                            self.linepoints = self.gettangentpoints(plane_model) #Find points for line to draw in rviz
-                            #self.walldist = newdist #Set walldistance
-                            break #skip to next iteration of while loop
-                        if abs(plane_model[2]) < self.verticalityThreshold: #If the plane is vertical enough or the plane matches !!!(the "or match" may allow for finding a vertical wall that slopes into something horizontal.)
-                            #self.cloud_plane = cloud_filtered.extract(indices, negative=False) #Extract plane indices.
-                            actualPCopy.points  = [actualPCopy.points[indx] for indx in indices] #Set ROS pointcloud to only include plane points
+                    try: #Start Try statment (a lot can go wrong in the following code from timing issues, to not having enough data to set a plane.  In the end, the try except is just a much easier and probably quicker way to skip the current iteration and move to the next one)
+                        for i in range(self.planetrynum): #Continue trying to find planes for self.planetrynum times.
+                            #check = False #variable that determines if code should check if the current wall or previous wall is closer.
+                            #usesave = None #variable that determines whether or not to use the current wall or the previous wall.
+                            indices, plane_model = seg.segment() #Receive plane_model [a, b, c, d] for equation (ax + by + cz + d = 0), also receive indices in the plane
+                            #if self.saved_plane_model is not None : #If there is a previous plane
+                            #    if (abs(plane_model[0]-self.saved_plane_model[0]) < self.abc_match_threshold and
+                            #        abs(plane_model[1]-self.saved_plane_model[1]) < self.abc_match_threshold and
+                            #        abs(plane_model[2]-self.saved_plane_model[2]) < self.abc_match_threshold and
+                            #        abs(plane_model[3]-self.saved_plane_model[3]) < self.d_match_threshold): #See if current plane is relatively close to previous plane
+                            #        match = True #The walls match
+                            #    else:
+                            #        check = True #The walls don't match and we should find which is closer.
+                            if len(indices) < self.robustThreshold: #If the wall isn't robust enough
+                                print("No Robust Planes") #Print that the wall is bad
+                                #if self.saved_plane_model: #if there is a saved_plane_model
+                                #    newdist = self.plane_distance(self.saved_plane_model, self.position) #Use saved_plane_model
+                                #else: #otherwise
+                                #    newdist = None #set distance to none
+                                self.linepoints = self.gettangentpoints(plane_model) #Find points for line to draw in rviz
+                                #self.walldist = newdist #Set walldistance
+                                break #skip to next iteration of while loop
+                            if abs(plane_model[2]) < self.verticalityThreshold: #If the plane is vertical enough or the plane matches !!!(the "or match" may allow for finding a vertical wall that slopes into something horizontal.)
+                                #self.cloud_plane = cloud_filtered.extract(indices, negative=False) #Extract plane indices.
+                                actualPCopy.points  = [actualPCopy.points[indx] for indx in indices] #Set ROS pointcloud to only include plane points
 
-                            #untransformed_CurrP, actualPCopy = self.pcloud_transform(actualPCopy, "/depth_camera", True) #Transform back into depth_camera frame from odom frame
-                            #untransformed_plane_cloud = pcl.PointCloud(untransformed_CurrP) #create pcl pointcloud for depth_camera frame pointcloud
+                                untransformed_CurrP, actualPCopy = self.pcloud_transform(actualPCopy, "/depth_camera", True) #Transform back into depth_camera frame from odom frame
+                                untransformed_plane_cloud = pcl.PointCloud(untransformed_CurrP) #create pcl pointcloud for depth_camera frame pointcloud
+                                #FIND PLANE AGAINT BUT IN NEW REFERENCE FRAME
+                                seg = untransformed_plane_cloud.make_segmenter()
+                                seg.set_optimize_coefficients(True)
+                                seg.set_model_type(pcl.SACMODEL_PLANE)
+                                seg.set_method_type(pcl.SAC_RANSAC)
+                                seg.set_distance_threshold(.03)
+                                new_indices, new_plane_model = seg.segment() #create new plane model !!!!!!!!!!!!!!!(GET RID OF ALL THIS EVENTUALLY, THE ONLY THING I NEED THE PLANE_MODEL FOR IS FINDING THE DISTANCE IN THE NEW REFERENCE FRAME, THIS PROCESS PROBABLY TAKES MUCH LONGER THAN THE MATH REQUIRED TO FIND THE DISTANCE.)
+                                #new_plane_dist= self.plane_distance(plane_model, self.position) #Find distance to newly found plane
+                                #if check: #if the current plane and previous plane were different (i.e. if check)
 
-                            #FIND PLANE AGAINT BUT IN NEW REFERENCE FRAME
-                            #seg = untransformed_plane_cloud.make_segmenter()
-                            #seg.set_optimize_coefficients(True)
-                            #seg.set_model_type(pcl.SACMODEL_PLANE)
-                            #seg.set_method_type(pcl.SAC_RANSAC)
-                            #seg.set_distance_threshold(.03)
-                            #new_indices, new_plane_model = seg.segment() #create new plane model !!!!!!!!!!!!!!!(GET RID OF ALL THIS EVENTUALLY, THE ONLY THING I NEED THE PLANE_MODEL FOR IS FINDING THE DISTANCE IN THE NEW REFERENCE FRAME, THIS PROCESS PROBABLY TAKES MUCH LONGER THAN THE MATH REQUIRED TO FIND THE DISTANCE.)
-                            #new_plane_dist= self.plane_distance(plane_model, self.position) #Find distance to newly found plane
-                            #if check: #if the current plane and previous plane were different (i.e. if check)
+                                #    if abs(new_plane_dist) > self.walldist: #If the old plane was closer
+                                #        plist = []
+                                #        for ind in indices:
+                                #            p = actualPCopy.points[ind]
+                                #            plist.append((p.x, p.y, p.z))
+                                #        plane_points = np.array(plist, dtype = np.float32)
+                                #        if self.PassedPlane(self.saved_plane_model, plane_points, self.position):
+                                #            usesave = False
+                                #        else:
+                                #            usesave = True #Use the save
+                                #    else: #otherwise
+                                #        usesave = False #Use the current plane
+                                #if usesave: #If save is used
+                                #    print("SAVE USED") #Print that save is used
+                                    #if self.saved_plane_model: #If there is a saved plane
+                                #    newdist = self.plane_distance(self.saved_plane_model, self.position) #set distance
+                                    #else:
+                                    #    newdist = None
+                                #    self.linepoints = self.gettangentpoints(self.saved_plane_model) #make line for rviz
+                                #    self.walldist = newdist # set walldist
+                                #    break #skip to next iteration of while loop
 
-                            #    if abs(new_plane_dist) > self.walldist: #If the old plane was closer
-                            #        plist = []
-                            #        for ind in indices:
-                            #            p = actualPCopy.points[ind]
-                            #            plist.append((p.x, p.y, p.z))
-                            #        plane_points = np.array(plist, dtype = np.float32)
-                            #        if self.PassedPlane(self.saved_plane_model, plane_points, self.position):
-                            #            usesave = False
-                            #        else:
-                            #            usesave = True #Use the save
-                            #    else: #otherwise
-                            #        usesave = False #Use the current plane
-                            #if usesave: #If save is used
-                            #    print("SAVE USED") #Print that save is used
-                                #if self.saved_plane_model: #If there is a saved plane
-                            #    newdist = self.plane_distance(self.saved_plane_model, self.position) #set distance
-                                #else:
-                                #    newdist = None
-                            #    self.linepoints = self.gettangentpoints(self.saved_plane_model) #make line for rviz
-                            #    self.walldist = newdist # set walldist
-                            #    break #skip to next iteration of while loop
+                                #self.walldist = new_plane_dist #Set walldist to new plane distance
+                                self.linepoints = self.gettangentpoints(plane_model) #Make line for RVIZ
+                                #print "plane model: " + str(plane_model)
+                                self.pub.publish(actualPCopy);
 
-                            #self.walldist = new_plane_dist #Set walldist to new plane distance
-                            self.linepoints = self.gettangentpoints(plane_model) #Make line for RVIZ
-                            print "plane model: " + str(plane_model)
-                            self.pub.publish(actualPCopy);
+                                #Since the only way to get to this part of the code is if the current plane was used, the code now overrides all of the saved information with the new plane's information
+                                self.walldist = abs(new_plane_model[3]) #set walldist to new walldist
+                                #self.saved_plane_model = plane_model #set saved plane to the current plane
+                                #self.untransformed_saved_plane_model = new_plane_model # set untransformed plane to current untransformed plane
 
-                            #Since the only way to get to this part of the code is if the current plane was used, the code now overrides all of the saved information with the new plane's information
-                            #self.walldist = new_plane_model[3] #set walldist to new walldist
-                            #self.saved_plane_model = plane_model #set saved plane to the current plane
-                            #self.untransformed_saved_plane_model = new_plane_model # set untransformed plane to current untransformed plane
+                                break #start next wall find
+                            else: #if the plane didn't make the cut, and wasn't a wall
+                                for a in indices: #loop through all the indices in the plane found
+                                    actualPCopy.points[a] = 0 #set those indices to 0
+                                for a in indices: #loop through all the indices again
+                                    actualPCopy.points.remove(0) #remove the first 0 found (which all in all, removes all of the points in the plane)
+                                cloud_filtered = pcl.PointCloud(np.asarray([(p.x, p.y, p.z) for p in actualPCopy.points], dtype = np.float32)) # set new pcl pointcloud that uses the updated ROS pointcloud (which doesn't have the indices in the nonwall plane that was found)
 
-                            break #start next wall find
-                        else: #if the plane didn't make the cut, and wasn't a wall
-                            for a in indices: #loop through all the indices in the plane found
-                                actualPCopy.points[a] = 0 #set those indices to 0
-                            for a in indices: #loop through all the indices again
-                                actualPCopy.points.remove(0) #remove the first 0 found (which all in all, removes all of the points in the plane)
-                            cloud_filtered = pcl.PointCloud(np.asarray([(p.x, p.y, p.z) for p in actualPCopy.points], dtype = np.float32)) # set new pcl pointcloud that uses the updated ROS pointcloud (which doesn't have the indices in the nonwall plane that was found)
-
-                            #MAKE NEW SEGMENTER TO BE READY TO FIND THE PLANE
-                            seg = cloud_filtered.make_segmenter()
-                            seg.set_optimize_coefficients(True)
-                            seg.set_model_type(pcl.SACMODEL_PLANE)
-                            seg.set_method_type(pcl.SAC_RANSAC)
-                            seg.set_distance_threshold(.03)
-                            continue #try to find another plane, ignore the one previously found
-                #except Exception as inst: #If something goes wrong
-                    #pass #ignore it
-                    #print inst #print it
+                                #MAKE NEW SEGMENTER TO BE READY TO FIND THE PLANE
+                                seg = cloud_filtered.make_segmenter()
+                                seg.set_optimize_coefficients(True)
+                                seg.set_model_type(pcl.SACMODEL_PLANE)
+                                seg.set_method_type(pcl.SAC_RANSAC)
+                                seg.set_distance_threshold(.03)
+                                continue #try to find another plane, ignore the one previously found
+                    except Exception as inst: #If something goes wrong
+                        #pass #ignore it
+                        print inst #print it
+                    self.dis_pub.publish(self.walldist)
                     #print "wall_distance: " + str(abs(self.walldist)) #print the current wall distance
                     #SEND MARKER TO RVIZ PUBLISHER
                     if (self.visualized):
@@ -209,6 +209,7 @@ class plane_finder(object):
 
 
                 self.actualP = None #reset pointcloud, so as to not accidentally do the same pointcloud twice and wait for the next one from the phone
+                self.walldist = -1
                 self.m.release()
 
             r.sleep() #wait until next iteration

@@ -29,6 +29,7 @@ class wall_audio_player(object):
         self.key = rospy.get_param('~pc_key', 'A')
         self.last_sound_time = rospy.Time.now() #Initialize the last time a sound was made
         self.dist = None
+
         self.player = ac.player() #play the sound.
         self.altsounddist = .5;
         self.rate = 1.0/20.0;
