@@ -126,6 +126,8 @@ class SemanticWayPoints(object):
         self.visited_tags_calibrate.append(tag_id); 
         self.engine.say("Name the AR Tag!")
         tag_name = raw_input("Name the AR Tag: "); 
+        confirm_msg = "Labled " + tag_name
+        self.engine.say(confirm_msg)
         self.tag_id_to_name[tag_id] = tag_name
         self.tag_name_to_id[tag_name] = tag_id
         print self.tag_id_to_name
@@ -162,6 +164,8 @@ class SemanticWayPoints(object):
         self.engine.say("What would you like to find?")
         search_tag_name = raw_input("What would you like to find? ")
         if search_tag_name in self.tag_name_to_id:
+            confirm_msg = "Looking for " + search_tag_name
+            self.engine.say(confirm_msg)
             self.tag_id = self.tag_name_to_id[search_tag_name]
             
             if self.visited_tags_calibrate[0] == self.tag_id:
@@ -200,13 +204,17 @@ class SemanticWayPoints(object):
     def finish_run(self, tag_id):
         system('aplay ' + path.join(self.sound_folder, 'ding.wav'))
         self.start_run = False
-        print "Found " + self.tag_id_to_name[tag_id]
-        print "Distance to Destination: " + str(self.distance_to_destination)
+        confirm_msg = "Found " + self.tag_id_to_name[tag_id]
+        print confirm_msg
+        self.engine.say(confirm_msg)
+        # print "Distance to Destination: " + str(self.distance_to_destination)
 
         self.visited_tags_run.append(tag_id) 
         self.end_time = time.time()    
         elapsed_time = self.end_time - self.start_time
-        print "Took " + str(round(elapsed_time, 2)) + " seconds!"
+        time_msg = "Took " + str(round(elapsed_time, 2)) + " seconds!"
+        self.engine.say(time_msg)
+        print time_msg
 
         self.display_messages(tag_id)
         self.collect_message(tag_id)
@@ -228,8 +236,7 @@ class SemanticWayPoints(object):
         else:
             if msg.detections:
                 tag_id = msg.detections[0].id
-                if (self.tag_id == tag_id 
-                    and not tag_id in self.visited_tags_run 
+                if (self.tag_id == tag_id  
                     and self.start_run and self.distance_to_destination < self.proximity_to_destination): 
                     
                     self.finish_run(tag_id)
@@ -261,7 +268,7 @@ class SemanticWayPoints(object):
                     self.last_say_time = rospy.Time.now()
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))
                     self.engine.say(speech)
-                    # print self.distance_to_destination
+                    print self.distance_to_destination
     
                 if ((not self.last_play_time or
                     rospy.Time.now() - self.last_play_time > rospy.Duration(6.0/(1+math.exp(-self.distance_to_destination*.3))-2.8)) and
@@ -270,7 +277,7 @@ class SemanticWayPoints(object):
 
                     self.last_play_time = rospy.Time.now()
                     system('aplay ' + path.join(self.sound_folder, 'beep.wav'))
-                    # print self.distance_to_destination
+                    print self.distance_to_destination
 
             r.sleep()
 
