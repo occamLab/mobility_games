@@ -6,4 +6,6 @@
   <node pkg="keyboard" type="keyboard" name="keyboard" />
 
   <node pkg="mobility_games" type="semantic_waypoints.py" name="semantic_waypoints" output="screen" />
+  <node pkg="rqt_gui" type="rqt_gui" name="rqt_gui" />
+
 </launch>

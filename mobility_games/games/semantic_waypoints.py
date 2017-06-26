@@ -14,7 +14,8 @@ from apriltags_ros.msg import AprilTagDetectionArray
 from std_msgs.msg import Header, ColorRGBA
 from keyboard.msg import Key
 import time
-import sys
+from dynamic_reconfigure.server import Server
+from mobility_games.cfg import SemanticWaypointsConfig
 
 def parse_tag_id(tag_x):
     return tag_x.split('_')[1]
@@ -36,6 +37,7 @@ class SemanticWayPoints(object):
         self.start_time = None              # Starting time -- starts when user types in destination
         self.end_time = None                # End time -- stops when user finds destination
         self.distance_to_destination = 999  # Distance to destination from current position
+        self.proximity_to_destination = 0.8
 
         self.x = None                       # x position of Tango. Start at None because no data have been received yet.
         self.y = None                       # z position of Tango
@@ -57,7 +59,12 @@ class SemanticWayPoints(object):
                         AprilTagDetectionArray,
                         self.tag_callback)
         rospy.Subscriber('/keyboard/keydown', Key, self.run_mode)
-        
+        srv = Server(SemanticWaypointsConfig, self.config_callback)
+    
+    def config_callback(self, config, level):
+        self.proximity_to_destination = config['proximity_to_destination']
+        return config
+   
     
     # FOR DEMO ONLY
     #   - Creates fake messages
@@ -223,7 +230,7 @@ class SemanticWayPoints(object):
                 tag_id = msg.detections[0].id
                 if (self.tag_id == tag_id 
                     and not tag_id in self.visited_tags_run 
-                    and self.start_run and self.distance_to_destination < 0.6): 
+                    and self.start_run and self.distance_to_destination < self.proximity_to_destination): 
                     
                     self.finish_run(tag_id)
 
@@ -248,7 +255,7 @@ class SemanticWayPoints(object):
         print("Searching for Tango...")
         while not rospy.is_shutdown():
             self.start_speech_engine()
-            if self.start_run and self.distance_to_destination > 0.6 and self.x and self.y and self.translations:
+            if self.start_run and self.distance_to_destination > self.proximity_to_destination and self.x and self.y and self.translations:
                 if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(10.0):
                     #   If it has been ten seconds since last speech, give voice instructions
                     self.last_say_time = rospy.Time.now()
