@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find mobility_sensing)/launch/tag_frames.launch" />
+
+  <!-- mobility games requires a keyboard press in order to switch between calibration and run modes -->
+  <node pkg="keyboard" type="keyboard" name="keyboard" />
+
+  <node pkg="mobility_games" type="semantic_waypoints.py" name="semantic_waypoints" output="screen" />
+</launch>
