@@ -27,6 +27,7 @@ class SemanticWayPoints(object):
         self.visited_tags_calibrate = []    # Keeps track of tags seen in calibration phase
         self.visited_tags_run = []          # Keeps track of tags seen in run phase
         self.tag_id = None                  # Destination tag_id
+        self.translations = None
 
         self.tag_messages = {}              # Messages stored for each tag
         self.create_test_messages()         # FOR DEMO ONLY -- Create fake messages
@@ -37,7 +38,7 @@ class SemanticWayPoints(object):
         self.distance_to_destination = 999  # Distance to destination from current position
 
         self.x = None                       # x position of Tango. Start at None because no data have been received yet.
-        self.z = None                       # z position of Tango
+        self.y = None                       # z position of Tango
         self.yaw = None                     # yaw of Tango
 
         self.last_play_time = None          #   Last time a beeping noise has been made
@@ -68,20 +69,17 @@ class SemanticWayPoints(object):
 
     def process_pose(self, msg):       #    Onngoing function that updates current x, y, and yaw
         if self.tag_id:
-            if self.visited_tags_calibrate[0] == self.tag_id:
-                ARFrame = 'AR'
-            else:
-                ARFrame = "AR_" + str(self.tag_id);
-            
             try:
-                self.listener.waitForTransform(ARFrame, 
+                self.listener.waitForTransform('odom', 
                                                msg.header.frame_id, 
                                                msg.header.stamp, 
                                                rospy.Duration(0.5))
-                newitem = self.listener.transformPose(ARFrame, msg)
+                newitem = self.listener.transformPose('odom', msg)
                 self.x = newitem.pose.position.x
-                self.z = newitem.pose.position.z
-                self.distance_to_destination = math.sqrt(self.x**2 + self.z**2)
+                self.y = newitem.pose.position.y
+                
+                if self.translations:
+                    self.distance_to_destination = math.sqrt((self.translations[0] - self.x)**2 + (self.translations[1] - self.y)**2)
                 angles = euler_from_quaternion([msg.pose.orientation.x,
                                                 msg.pose.orientation.y,
                                                 msg.pose.orientation.z,
@@ -158,6 +156,30 @@ class SemanticWayPoints(object):
         search_tag_name = raw_input("What would you like to find? ")
         if search_tag_name in self.tag_name_to_id:
             self.tag_id = self.tag_name_to_id[search_tag_name]
+            
+            if self.visited_tags_calibrate[0] == self.tag_id:
+                ARFrame = 'AR'
+            else:
+                ARFrame = "AR_" + str(self.tag_id);
+
+            if (self.listener.frameExists("odom")
+                    and self.listener.frameExists(ARFrame)):
+
+                try:
+                    t = self.listener.getLatestCommonTime("odom", ARFrame)
+
+                    # get transform to make tag_frame (parent) & odom (child)
+                    trans, rot = self.listener.lookupTransform(
+                            "odom", ARFrame, t)
+
+                    self.translations = trans
+                    # self.rotations = rot
+
+                except (tf.ExtrapolationException,
+                        tf.LookupException,
+                        tf.ConnectivityException) as e:
+                    print e
+
             self.start_run = True
             self.start_time = time.time()
         elif search_tag_name == 'done':
@@ -226,12 +248,13 @@ class SemanticWayPoints(object):
         print("Searching for Tango...")
         while not rospy.is_shutdown():
             self.start_speech_engine()
-            if self.start_run and self.distance_to_destination > 0.6 and self.x and self.z:
+            if self.start_run and self.distance_to_destination > 0.6 and self.x and self.y and self.translations:
                 if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(10.0):
                     #   If it has been ten seconds since last speech, give voice instructions
                     self.last_say_time = rospy.Time.now()
-                    speech = self.det_speech(self.yaw, (self.x, self.z), (0.0, 0.0))
+                    speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))
                     self.engine.say(speech)
+                    # print self.distance_to_destination
     
                 if ((not self.last_play_time or
                     rospy.Time.now() - self.last_play_time > rospy.Duration(6.0/(1+math.exp(-self.distance_to_destination*.3))-2.8)) and
@@ -240,6 +263,7 @@ class SemanticWayPoints(object):
 
                     self.last_play_time = rospy.Time.now()
                     system('aplay ' + path.join(self.sound_folder, 'beep.wav'))
+                    # print self.distance_to_destination
 
             r.sleep()
 
