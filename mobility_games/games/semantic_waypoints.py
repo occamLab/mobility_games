@@ -37,7 +37,7 @@ class SemanticWayPoints(object):
         self.start_time = None              # Starting time -- starts when user types in destination
         self.end_time = None                # End time -- stops when user finds destination
         self.distance_to_destination = 999  # Distance to destination from current position
-        self.proximity_to_destination = 0.8
+        self.proximity_to_destination = rospy.get_param('~proximity_to_destination', 0.8)
 
         self.x = None                       # x position of Tango. Start at None because no data have been received yet.
         self.y = None                       # z position of Tango
