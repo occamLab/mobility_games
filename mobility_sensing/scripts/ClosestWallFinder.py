@@ -17,6 +17,8 @@ import math
 import mobility_games.auditory.audio_controller as ac
 from audiolazy import *
 import sys
+from dynamic_reconfigure.server import Server
+from mobility_sensing.cfg import ClosestWallConfig
 
 class ClosestWallFinder(object):
     def __init__(self, gameplay, visualized):#, corner_visualized):
@@ -25,6 +27,7 @@ class ClosestWallFinder(object):
         rospy.init_node('close_wall_finder') #Initialize Node for Code
         rospy.Subscriber('/point_cloud', PointCloud, self.process_cloud) #Read from Tango's Point Cloud
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose) #Read from Tango's Pose
+        srv = Server(ClosestWallConfig, self.config_callback)
 
         self.m = Lock() # Create a locker for multithreading management
         self.pub = rospy.Publisher('/smart_wall_finder', PointCloud, queue_size=10) #Be ready to publish pointclouds to plane_finder, cloud_transformed, and plane_lines
@@ -34,15 +37,16 @@ class ClosestWallFinder(object):
         self.listener = tf.TransformListener() #Initialize Transformer class that allows for easy coordinate frame transformations
         self.CurrP = None #Initialize Point List
         self.actualP = None #Initialize Point_Cloud from Tango
-        self.resolutionfactor = 5 #Factor by which to lower the resolution of the point cloud (i.e. if it is 10, we only look at every 10th point of the pointcloud.)
+        self.resolutionfactor = rospy.get_param('~pc_Resolution', 5) #Factor by which to lower the resolution of the point cloud (i.e. if it is 10, we only look at every 10th point of the pointcloud.)
         self.planetrynum = 5 #Set Number of Times to try to find a plane before giving up
         self.abc_match_threshold = .075 #amount of difference there can be between a, b, and c parameters in plane_models without assuming the current wall is different from the previous wall. !!!(unsure about what this number should be)
         self.d_match_threshold = .2 #amount of difference there can be between d parameter in plane_models without assuming the current wall is different from the previous wall. !!!(unsure about what this number should be)
-        self.verticalityThreshold = .2 #Set how vertical walls need to be (the maximum z component of the normal vector of the plane.) !!!(unsure about what this number should be)
+        self.verticalityThreshold = rospy.get_param('~pc_vertThreshold', .2) #Set how vertical walls need to be (the maximum z component of the normal vector of the plane.) !!!(unsure about what this number should be)
         self.t = 0.0 #Set current Rostime
-        self.robustThreshold = 300 #Minimum number of points required to find plane
+        self.robustThreshold = rospy.get_param('~pc_RobustThreshold', 300) #Minimum number of points required to find plane
         self.ycutoff = 5; #How much of the phone's view is used (0 uses only the right side of the phone camera, a positive number will allow for more on the left to be seen as well, and a negative number will favor only the most right points)
         self.saved_plane_model = None; #Initialize saved plane
+        self.planeDistThreshold = rospy.get_param('~pc_planeDistThreshold', .03);
 
         self.position = None; #Initialize current phone location
         self.walldist = 0; #Initialize Distance to Wall
@@ -52,6 +56,13 @@ class ClosestWallFinder(object):
         self.linepoints = None #Initialize line points for wall drawing in rviz
         linecolor = ColorRGBA(.25,.42,.88,1) #Initialize color of the wall drawing in rviz
         self.linecolors = [linecolor, linecolor] #Initialize gradient of color of wall drawing in rviz
+
+    def config_callback(self, config, level):
+        self.robustThreshold = config["pc_RobustThreshold"]
+        self.resolutionfactor = config["pc_Resolution"]
+        self.verticalityThreshold = config["pc_vertThreshold"]
+        self.planeDistThreshold = config["pc_planeDistThreshold"]
+        return config
 
     def process_cloud(self, msg):
         """
@@ -97,7 +108,7 @@ class ClosestWallFinder(object):
                     seg.set_optimize_coefficients(True) #Not sure what this is
                     seg.set_model_type(pcl.SACMODEL_PLANE) #Set model that segmenter finds to a plane
                     seg.set_method_type(pcl.SAC_RANSAC) #Set method for finding plane to RANSAC algorithm
-                    seg.set_distance_threshold(.03) #Not sure what this is
+                    seg.set_distance_threshold(self.planeDistThreshold) #Not sure what this is
                     match = False #The variable that determines if the previous plane is the same plane as found now.
                     try: #Start Try statment (a lot can go wrong in the following code from timing issues, to not having enough data to set a plane.  In the end, the try except is just a much easier and probably quicker way to skip the current iteration and move to the next one)
                         for i in range(self.planetrynum): #Continue trying to find planes for self.planetrynum times.
@@ -170,7 +181,7 @@ class ClosestWallFinder(object):
                                 seg.set_optimize_coefficients(True)
                                 seg.set_model_type(pcl.SACMODEL_PLANE)
                                 seg.set_method_type(pcl.SAC_RANSAC)
-                                seg.set_distance_threshold(.03)
+                                seg.set_distance_threshold(self.planeDistThreshold)
                                 continue #try to find another plane, ignore the one previously found
                     except Exception as inst: #If something goes wrong
                         pass #ignore it
@@ -178,6 +189,7 @@ class ClosestWallFinder(object):
                     print "wall_distance: " + str(abs(self.walldist)) #print the current wall distance
                     self.pub.publish(actualPCopy)
                     self.dist_pub.publish(self.walldist)
+
                     if (self.visualized and self.linepoints):
                         self.vis_pub.publish(Marker(header=Header(frame_id="odom", stamp=self.actualP.header.stamp),
                                                     type=Marker.LINE_LIST,
