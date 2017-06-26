@@ -19,6 +19,8 @@ import time
 import sys
 from mobility_games.auditory.audio_controller import *
 from rospkg import RosPack
+from dynamic_reconfigure.server import Server
+from mobility_games.cfg import MusicalCaneConfig
 
 
 class AudioFeedback(object):
@@ -31,6 +33,14 @@ class AudioFeedback(object):
         rospy.Subscriber('/fisheye_undistorted/tag_detections',
                         AprilTagDetectionArray,
                         self.tag_array)
+
+        #   Set up dynamic reconfigure server
+        srv = Server(MusicalCaneConfig, self.config_callback)
+
+        #   Set initial values for reconfigure
+        self.mode = rospy.get_param("~mode", "music")
+        self.sweep_tolerance = rospy.get_param("~sweep_tolerance", "2.0")
+        self.sweep_range = rospy.get_param("~sweep_range", "0.6")
 
         #   Set initial positions to None
         self.x = None
@@ -122,17 +132,27 @@ class AudioFeedback(object):
                 self.tag_list.append((x, y, z, tag_id))
                 self.id_list.append(tag_id)
 
-    def run_wav(self, mode = "music"):
+
+    def config_callback(self, config, level):
+        self.mode = config["mode"]
+        self.sweep_tolerance = config["sweep_tolerance"]
+        self.sweep_range = config["sweep_range"]
+        return config
+
+    def run_wav(self):
         """ Plays a wav file while the user is sweeping the cane consistently.
             Pauses music when the cane stops, and resumes when it continues. """
 
-        self.mode = mode
         r = rospy.Rate(10)
         print("Searching for Tango...")
         print("Searching for AR tags...")
         visible_tag = 0
 
         while not rospy.is_shutdown():
+
+            if not self.start:
+                print("X position: " + str(self.x),
+                    "Cane x position: " + str(self.cane_x))
 
             #   Start program if receiving pose from Tango
             if self.x and self.cane_x and not self.start:
@@ -156,7 +176,7 @@ class AudioFeedback(object):
                 print("Cane found.")
 
                 #   Set parameters for cane sweeping.
-                sweep_width = 0.5
+                sweep_width = self.sweep_range
                 cane_points = [-sweep_width/2.0, sweep_width/2.0]
                 offset_selection = 0
 
@@ -192,7 +212,7 @@ class AudioFeedback(object):
                     self.cane_y_prev = self.cane_y
 
                 #   If no sweep in X seconds, stop music
-                if rospy.Time.now() - last_sweep > rospy.Duration(2.0):
+                if rospy.Time.now() - last_sweep > rospy.Duration(self.sweep_tolerance):
                     should_play = -1
 
                 #   Music should not play if not in music mode
@@ -230,4 +250,4 @@ class AudioFeedback(object):
 
 if __name__ == '__main__':
     node = AudioFeedback()
-    node.run_wav("music")
+    node.run_wav()
