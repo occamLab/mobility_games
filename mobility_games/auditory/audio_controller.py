@@ -10,25 +10,21 @@ def freq(name):
     """ Generates frequency based on note name.
     Example: freq("G4")"""
 
-    try:
-        letter = name[0]
+    letter = name[0]
+    name = name[1:]
+    mod = False
+    if name[0] in ("#", "b"):
+        letter += name[0]
         name = name[1:]
-        mod = False
-        if name[0] in ("#", "b"):
-            letter += name[0]
-            name = name[1:]
-        octv = int(name)
+    octv = int(name)
 
-        freqs = {"C" : 16.35, "C#" : 17.32, "Db" : 17.32, "D" : 18.35,
-                "D#" : 19.45, "Eb" : 19.45, "E" : 20.60, "E#" : 21.83, "Fb" : 20.60,
-                "F" : 21.83, "F#" : 23.12, "Gb" : 23.12, "G" : 24.50, "G#" : 25.96,
-                "Ab" : 25.96, "A" : 27.50, "A#" : 29.14, "Bb" : 29.14, "B" : 30.87,
-                "B#" : 32.70, "Cb" : 15.49}
+    freqs = {"C" : 16.35, "C#" : 17.32, "Db" : 17.32, "D" : 18.35,
+            "D#" : 19.45, "Eb" : 19.45, "E" : 20.60, "E#" : 21.83, "Fb" : 20.60,
+            "F" : 21.83, "F#" : 23.12, "Gb" : 23.12, "G" : 24.50, "G#" : 25.96,
+            "Ab" : 25.96, "A" : 27.50, "A#" : 29.14, "Bb" : 29.14, "B" : 30.87,
+            "B#" : 32.70, "Cb" : 15.49}
 
-        return freqs[letter] * (2 ** octv)
-
-    except:
-        print("That is not a note.")
+    return freqs.get(letter, "C") * (2 ** octv)
 
 def quantize(pitch, quantizetype = "scale", key = "A"):
     basepitch = freq(key+"0")
@@ -38,8 +34,11 @@ def quantize(pitch, quantizetype = "scale", key = "A"):
                     "scale":[16.35, 18.35, 20.60, 21.83, 24.50, 27.59, 30.87, 32.70],
                     "M":[16.35, 20.60, 24.50, 32.70],
                     "m":[16.35, 19.45, 24.50, 32.70],
-                    "M7":[16.35, 20.60, 24.50, 30.87, 32.70]}
-    freqlist = quantizedict.get(quantizetype)
+                    "M7":[16.35, 20.60, 24.50, 30.87, 32.70],
+                    "dom7":[16.35, 20.60, 24.50, 29.14, 32.70],
+                    "dim7":[16.35, 19.45, 23.12, 27.50, 32.70],
+                    "m7":[16.35, 19.45, 24.50, 29.14, 32.70]}
+    freqlist = quantizedict.get(quantizetype, quantizedict["chromatic"])
     C0ToNote = basepitch/freq("C0")
     freqlist = [i*C0ToNote for i in freqlist]
     #print(freqlist)
@@ -121,18 +120,42 @@ def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     print("Sounds generated.")
     return np.asarray(sounds)
 
-def synth(freq, synth = "sin", fade = 0.4):
+def synth(freq, synth = "sin", fade = 0.4, fadebool = True):
     """ Generates a karplus_strong sound at a given frequency."""
     rate = 44100 # Sampling rate, in samples/second
     s, Hz = sHz(rate) # Seconds and hertz
     ms = 1e-3 * s
     if synth == "sin":
-        sound = saw_table(freq * Hz) * fadeout(fade*s)
+        sound = sin_table(freq * Hz)
+    elif synth == "saw":
+        sound = saw_table(freq*Hz)
     elif synth == "digitar":
-        sound = karplus_strong(freq*Hz)# * fadeout(fade*s))
+        sound = karplus_strong(freq*Hz)
     else:
-        sound = karplus_strong(freq*Hz)# * fadeout(fade*s))
-    sound.append(zeros(Hz*(1 - fade)))
+        sound = karplus_strong(freq*Hz)
+    if fadebool:
+        sound = sound * fadeout(fade*s)
+    #print("sound: " + str(type(sound)))
+    #print("sound: " + str(type(zeros(100))))
+    #sound.append(zeros(s*1))
+    return sound
+
+def fade_out(sound, endofsound=1, fadetime = .2):
+    rate = 44100 # Sampling rate, in samples/second
+    s, Hz = sHz(rate) # Seconds and hertz
+    ms = 1e-3 * s
+    fadeoutsound = fadeout(fadetime*s)
+    newfadeoutsound = ones(s*(endofsound - fadetime)).append(fadeoutsound).append(zeros(1*s))
+    sound = sound * newfadeoutsound
+    return sound
+
+def fade_in(sound, endofsound=1, fadetime = .2):
+    rate = 44100 # Sampling rate, in samples/second
+    s, Hz = sHz(rate) # Seconds and hertz
+    ms = 1e-3 * s
+    fadeinsound = fadein(fadetime*s)
+    fadeinsound.append(ones(s*(endofsound-fadetime+1)))
+    sound = sound * fadeinsound
     return sound
 
     #TODO fix bug where script will crash at specific tempos when fadeout is
@@ -148,13 +171,24 @@ def play(sound, player):
     rate = 44100
     player.play(sound, rate = rate)
 
-def playstream(stream, player, seconds = 1):
+def playstream(stream, player, seconds = 1, volume = 1):
     """ Plays a stream on player for seconds seconds of stream """
     rate = 44100
     s, Hz = sHz(rate)
     ms = 1e-3*s
+    stream = stream * volume
     sound = stream.take(int(seconds*s))
     player.play(sound, rate = rate)
+
+def takeplus(stream, seconds):
+    """
+    The merge appears to have messed up this function.  Don't remember what it originally did, but wasn't super important
+    """
+    rate = 44100
+    s, Hz = sHz(rate)
+    ms = 1e-3*s
+    a = stream.take(s*seconds)
+    return a
 
 def pns(list_of_chords, t = 0.5, beat = 0, amp = 1):
     """ Plays notes from a numpy array, where notes along the first dimension
