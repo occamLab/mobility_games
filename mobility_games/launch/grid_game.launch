@@ -1,0 +1,9 @@
+<launch>
+
+    <node pkg="mobility_games" name="grid_game_2" type="grid_game_2.py"/>
+
+
+    <node pkg="mobility_sensing" name="plane_finder" type="plane_finder.py"/>
+
+
+</launch>
