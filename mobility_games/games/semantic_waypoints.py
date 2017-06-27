@@ -26,7 +26,6 @@ class SemanticWayPoints(object):
         self.tag_id_to_name = {}            # Maps tag_id to string label
         self.tag_name_to_id = {}            # Maps string label to tag_id
         self.visited_tags_calibrate = []    # Keeps track of tags seen in calibration phase
-        self.visited_tags_run = []          # Keeps track of tags seen in run phase
         self.tag_id = None                  # Destination tag_id
         self.translations = None
 
@@ -123,10 +122,10 @@ class SemanticWayPoints(object):
 
     # Adds string labels to AR Tags
     def calibrate_tag(self, tag_id):    
-        self.visited_tags_calibrate.append(tag_id); 
+        self.visited_tags_calibrate.append(tag_id)
         self.engine.say("Name the AR Tag!")
-        tag_name = raw_input("Name the AR Tag: "); 
-        confirm_msg = "Labled " + tag_name
+        tag_name = raw_input("Name the AR Tag: ")
+        confirm_msg = "Labeled " + tag_name
         self.engine.say(confirm_msg)
         self.tag_id_to_name[tag_id] = tag_name
         self.tag_name_to_id[tag_name] = tag_id
@@ -151,7 +150,7 @@ class SemanticWayPoints(object):
     def display_messages(self, tag_id):
         if tag_id in self.tag_messages:
             print "Someone has left you a message:"
-            self.engine.say('Somone has left you a message')
+            self.engine.say('Someone has left you a message')
             for message in self.tag_messages[tag_id]:
                 print message + '\n'
                 self.engine.say(message)
@@ -189,7 +188,7 @@ class SemanticWayPoints(object):
         self.engine.say("What would you like to find?")
         search_tag_name = raw_input("What would you like to find? ")
         if search_tag_name in self.tag_name_to_id:
-            confirm_msg = "Looking for " + search_tag_name
+            confirm_msg = "Looking for %s" % search_tag_name
             self.engine.say(confirm_msg)
             self.tag_id = self.tag_name_to_id[search_tag_name]
             
@@ -200,7 +199,7 @@ class SemanticWayPoints(object):
         elif search_tag_name == 'done':
             print "Goodbye!"
         else:
-            err_msg =  '"' + search_tag_name + '" does not exisit. Try again!'
+            err_msg = '"%s" does not exist. Try again!' % search_tag_name
             self.engine.say(err_msg)
             print err_msg
             self.start_new_game()
@@ -211,12 +210,10 @@ class SemanticWayPoints(object):
         confirm_msg = "Found " + self.tag_id_to_name[tag_id]
         print confirm_msg
         self.engine.say(confirm_msg)
-        # print "Distance to Destination: " + str(self.distance_to_destination)
 
-        self.visited_tags_run.append(tag_id) 
         self.end_time = time.time()    
         elapsed_time = self.end_time - self.start_time
-        time_msg = "Took " + str(round(elapsed_time, 2)) + " seconds!"
+        time_msg = "Took %s seconds!" % round(elapsed_time, 1)
         self.engine.say(time_msg)
         print time_msg
 
@@ -236,7 +233,7 @@ class SemanticWayPoints(object):
                 if not tag_id in self.visited_tags_calibrate:
                     self.calibrate_tag(tag_id)
 
-        # Idnetify april tags with given string names            
+        # Identify april tags with given string names            
         else:
             if msg.detections:
                 tag_id = msg.detections[0].id
@@ -274,7 +271,7 @@ class SemanticWayPoints(object):
                     self.last_say_time = rospy.Time.now()
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))
                     self.engine.say(speech)
-                    print self.distance_to_destination
+                    # print self.distance_to_destination
     
                 if ((not self.last_play_time or
                     rospy.Time.now() - self.last_play_time > rospy.Duration(6.0/(1+math.exp(-self.distance_to_destination*.3))-2.8)) and
@@ -283,7 +280,7 @@ class SemanticWayPoints(object):
 
                     self.last_play_time = rospy.Time.now()
                     system('aplay ' + path.join(self.sound_folder, 'beep.wav'))
-                    print self.distance_to_destination
+                    # print self.distance_to_destination
 
             r.sleep()
 
