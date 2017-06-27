@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from sensor_msgs.msg import PointCloud
+from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseStamped, Pose, Point, Vector3Stamped, Vector3
 import numpy as np
 import pcl
@@ -25,12 +25,12 @@ class ClosestWallFinder(object):
         self.gameplay = gameplay
         self.visualized = visualized
         rospy.init_node('close_wall_finder') #Initialize Node for Code
-        rospy.Subscriber('/point_cloud', PointCloud, self.process_cloud) #Read from Tango's Point Cloud
+        rospy.Subscriber('/point_cloud', PointCloud2, self.process_cloud) #Read from Tango's Point Cloud
         rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose) #Read from Tango's Pose
         srv = Server(ClosestWallConfig, self.config_callback)
 
         self.m = Lock() # Create a locker for multithreading management
-        self.pub = rospy.Publisher('/smart_wall_finder', PointCloud, queue_size=10) #Be ready to publish pointclouds to plane_finder, cloud_transformed, and plane_lines
+        self.pub = rospy.Publisher('/smart_wall_finder', PointCloud2, queue_size=10) #Be ready to publish pointclouds to plane_finder, cloud_transformed, and plane_lines
         self.vis_pub = rospy.Publisher('/smart_wall_viz', Marker, queue_size=10)
         self.dist_pub = rospy.Publisher('/smart_wall_dist', Float64, queue_size=10)
 
@@ -64,15 +64,21 @@ class ClosestWallFinder(object):
         self.planeDistThreshold = config["pc_planeDistThreshold"]
         return config
 
-    def process_cloud(self, msg):
-        """
+    def on_new_point_cloud(data):
+        pc = pc2.read_points(data, skip_nans=True, field_names=("x", "y", "z"))
+        pc_list = []
+        for p in pc:
+            pc_list.append( [p[0],p[1],p[2]] )
+
+    """def process_cloud(self, msg):
+        ""
         This function processes the incoming point cloud from the phone an lowers the resolution of the cloud in an attempt to run a bit faster.
         This function also uses a lock to make sure that actualP isn't being used in a calculation when the code receives new data from the tango.
-        """
+        ""
         self.m.acquire() #Lock
         self.actualP = msg #Receive pointcloud
-        self.actualP.points = [i for i in self.actualP.points[::self.resolutionfactor] if i.y < self.ycutoff] #Lower resolution by a factor of self.resolutionfactor
-        self.m.release() #Unlock
+        #self.actualP.points = [i for i in self.actualP.points[::self.resolutionfactor] if i.y < self.ycutoff] #Lower resolution by a factor of self.resolutionfactor
+        self.m.release() #Unlock"""
 
     def process_pose(self, msg):
         """
@@ -103,7 +109,7 @@ class ClosestWallFinder(object):
                 if actualPCopy is None: #If something went wrong with the transform (if the transforms haven't been set yet or some timing issues happen)
                     pass #continue loop
                 else: #otherwise:
-                    cloud_filtered = pcl.PointCloud(self.CurrP) #Convert points into pcl Point Cloud (different from Ros point cloud)
+                    cloud_filtered = pcl.PointCloud(actualPCopy) #Convert points into pcl Point Cloud (different from Ros point cloud)
                     seg = cloud_filtered.make_segmenter() #Set segmenter (tries to find segments in pointcloud)
                     seg.set_optimize_coefficients(True) #Not sure what this is
                     seg.set_model_type(pcl.SACMODEL_PLANE) #Set model that segmenter finds to a plane
@@ -268,7 +274,8 @@ class ClosestWallFinder(object):
                 print "NAN numbers found" #print it
                 return None, None #return Nones
             if get_points: #If code wants points in numpy array form
-                points = np.asarray([(p.x, p.y, p.z) for p in newcloud.points], dtype = np.float32) #Create numpy array form of points
+                points = None
+                #points = np.asarray([(p.x, p.y, p.z) for p in newcloud.points], dtype = np.float32) #Create numpy array form of points
             else: #otherwise
                 points = None #set to none
         except Exception as inst: #if something goes wrong

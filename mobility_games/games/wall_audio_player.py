@@ -32,7 +32,10 @@ class wall_audio_player(object):
         self.key = rospy.get_param('~key', 'A')
         self.on = rospy.get_param('~on', False)
         self.altsounddist = rospy.get_param('~successZoneSize', .5)
-        self.maxfreqdist = 5.0;
+        self.maxfreqdist = 5.0
+        self.maxfreq = 2092.8
+        self.minfreq = 130.8
+        self.reverse = False;
         self.last_sound_time = rospy.Time.now() #Initialize the last time a sound was made
         self.dist = None
 
@@ -94,16 +97,21 @@ class wall_audio_player(object):
                     #if (self.track):
                         #Do Music Tracks based on distance, further away = less music
                     #    pass
+
+                    """ MAKE THIS A PART OF THE UPDATE OF THE POSITION INSTEAD OF RECALCULATING ALL OF THIS FOR EVERY SOUND PLAYED."""
                     if (self.pitch):#self.gmode.contains('p')):
                         #print("wowowowow")
-                        freq = max(min(100*math.exp((abs(self.dist+random.random()*self.randrange)-self.altsounddist)/1.6)+65.4*2, 2092.8), 65.4*2)*2 #set frequency based on distance
+                        #midpoint = (self.maxfreqdist-self.altsounddist)/2
+                        multiplier = self.maxfreq/math.pow(2, (self.maxfreqdist-self.altsounddist))
+                        freq = max(min(multiplier*math.pow((abs(self.dist+random.random()*self.randrange)-self.altsounddist), 2)+65.4*2, self.maxfreq), 65.4*2)*2 #set frequency based on distance
+
                         #if self.dist < .7:
                         #    freq = ac.quantize(freq, quantizetype = "M", key="C")
                         #elif self.dist < 1.4:
                         #    freq = ac.quantize(freq, quantizetype = "dom7", key="G")
                         #else:
                         freq = ac.quantize(freq, quantizetype = self.quantizetype, key=self.key)
-                        #print (freq)
+                        #print (freq):
                     else:
                         if (self.pitchdefault != ''):
                             freq = ac.freq(self.pitchdefault)
