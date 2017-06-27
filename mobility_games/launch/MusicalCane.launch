@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>
+
+<include file="$(find mobility_sensing)/launch/cane.launch">
+</include>
+
+<node name="wav_musical_cane" pkg="mobility_games" type="wav_musical_cane.py" output="screen">
+</node>
+
+<node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen">
+</node>
+
+</launch>
