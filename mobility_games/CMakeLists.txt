@@ -92,6 +92,7 @@ catkin_python_setup()
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
+   cfg/MusicalCane.cfg
    cfg/WallAudio.cfg
    cfg/SemanticWaypoints.cfg
 )

@@ -63,21 +63,21 @@ def quantize(pitch, quantizetype = "scale", key = "A"):
     #print(closestpitch)
 
 def delay(sig, delaynum, delayinterval, startamp):
-  """ Simple feedforward delay effect """
-  smix = Streamix()
-  sig = thub(sig, delaynum) # Auto-copy 3 times (remove this line if using feedback)
-  smix.add(0, sig)
-  # To get a feedback delay, use "smix.copy()" below instead of both "sig"
-  for i in range(1, delaynum):
+    """ Simple feedforward delay effect """
+    smix = Streamix()
+    sig = thub(sig, delaynum) # Auto-copy 3 times (remove this line if using feedback)
+    smix.add(0, sig)
+    # To get a feedback delay, use "smix.copy()" below instead of both "sig"
+    for i in range(1, delaynum):
       #print .3-(i/20)
       smix.add(delayinterval* ms, startamp*(delaynum-i)/delaynum * sig)
-  #smix.add(300 * ms, .3 * sig) # You can also try other constants
-  #smix.add(360 * ms, .125 * sig)
-  return smix
-  # When using the feedback delay proposed by the comments, you can use:
-  #return smix.limit((1 + sum(dur for n, dur in notes)) * quarter_dur)
-  # or something alike (e.g. ensuring that duration outside of this
-# function), helping you to avoid an endless signal.
+    #smix.add(300 * ms, .3 * sig) # You can also try other constants
+    #smix.add(360 * ms, .125 * sig)
+    return smix
+    # When using the feedback delay proposed by the comments, you can use:
+    #return smix.limit((1 + sum(dur for n, dur in notes)) * quarter_dur)
+    # or something alike (e.g. ensuring that duration outside of this
+    # function), helping you to avoid an endless signal.
 
 def arrays_to_sound(list_of_tracks, quarter_time, amps = []):
     """ Takes in a list of numpy arrays for audio tracks and

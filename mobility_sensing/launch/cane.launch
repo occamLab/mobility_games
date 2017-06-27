@@ -24,7 +24,8 @@
       {id: 0, size: 0.055},
       {id: 1, size: 0.055},
       {id: 2, size: 0.055},
-      {id: 3, size: 0.055}]
+      {id: 3, size: 0.055},
+      {id: 12, size: 0.055}]
     </rosparam>
   </node>
 
