@@ -156,6 +156,31 @@ class SemanticWayPoints(object):
                 print message + '\n'
                 self.engine.say(message)
 
+    def update_destination_pose(self):
+        if self.visited_tags_calibrate[0] == self.tag_id:
+            ARFrame = 'AR'
+        else:
+            ARFrame = "AR_" + str(self.tag_id);
+
+        if (self.listener.frameExists("odom")
+                and self.listener.frameExists(ARFrame)):
+
+            try:
+                t = self.listener.getLatestCommonTime("odom", ARFrame)
+
+                # get transform to make tag_frame (parent) & odom (child)
+                trans, rot = self.listener.lookupTransform(
+                        "odom", ARFrame, t)
+
+                self.translations = trans
+                # self.rotations = rot
+
+            except (tf.ExtrapolationException,
+                    tf.LookupException,
+                    tf.ConnectivityException) as e:
+                print e
+
+
     # Starts new game 
     #   - Prompt user to enter destination
     #   - Restart timer
@@ -168,29 +193,8 @@ class SemanticWayPoints(object):
             self.engine.say(confirm_msg)
             self.tag_id = self.tag_name_to_id[search_tag_name]
             
-            if self.visited_tags_calibrate[0] == self.tag_id:
-                ARFrame = 'AR'
-            else:
-                ARFrame = "AR_" + str(self.tag_id);
-
-            if (self.listener.frameExists("odom")
-                    and self.listener.frameExists(ARFrame)):
-
-                try:
-                    t = self.listener.getLatestCommonTime("odom", ARFrame)
-
-                    # get transform to make tag_frame (parent) & odom (child)
-                    trans, rot = self.listener.lookupTransform(
-                            "odom", ARFrame, t)
-
-                    self.translations = trans
-                    # self.rotations = rot
-
-                except (tf.ExtrapolationException,
-                        tf.LookupException,
-                        tf.ConnectivityException) as e:
-                    print e
-
+            self.update_destination_pose()
+           
             self.start_run = True
             self.start_time = time.time()
         elif search_tag_name == 'done':
@@ -260,10 +264,12 @@ class SemanticWayPoints(object):
         r = rospy.Rate(10)  #   Runs loop at 10 times per second
         # self.start_speech_engine()
         print("Searching for Tango...")
+        self.start_speech_engine()
         while not rospy.is_shutdown():
-            self.start_speech_engine()
+            
             if self.start_run and self.distance_to_destination > self.proximity_to_destination and self.x and self.y and self.translations:
-                if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(10.0):
+                self.update_destination_pose()
+                if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(7.0):
                     #   If it has been ten seconds since last speech, give voice instructions
                     self.last_say_time = rospy.Time.now()
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))
