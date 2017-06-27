@@ -195,9 +195,7 @@ class AudioFeedback(object):
                     should_play = visible_tag
                     last_sweep = rospy.Time.now()
                     print("Reached point %s." % offset_selection)
-                    offset_selection += 1
-                    if offset_selection >= len(cane_points):
-                        offset_selection = 0
+                    offset_selection = (offset_selection + 1) % len(cane_points):
 
                     #   If in sound mode, play corresponding sound
                     if self.mode == "sound":
