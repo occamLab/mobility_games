@@ -50,7 +50,7 @@ class TagFrames:
                 trans, rot = self.listener.lookupTransform(
                         tag_frame, "odom", t)
 
-                print trans, rot
+                #print trans, rot
                 self.translations[tag_frame] = trans
                 self.rotations[tag_frame] = rot
 
@@ -90,7 +90,7 @@ class TagFrames:
                 trans, rot = self.listener.lookupTransform(
                         "odom", tag_frame, t)
 
-                print trans, rot
+                print "UPDATING!", tag_frame, trans, rot
                 self.translations[tag_frame] = trans
                 self.rotations[tag_frame] = rot
 
@@ -118,13 +118,14 @@ class TagFrames:
     def run(self):
         """ The main run loop """
         r = rospy.Rate(10)
-
+        tags_seen = set()
         while not rospy.is_shutdown():
-            tags_seen = self.tags_detected()
+            tags_seen = tags_seen.union(set(self.tags_detected()))
+            print tags_seen
 
             if len(tags_seen) > 0:
                 if self.first_tag is None:
-                    self.first_tag = tags_seen[0]
+                    self.first_tag = list(tags_seen)[0]
 
                 self.update_AR_odom_transform(self.first_tag)
                 self.broadcast_AR_odom_transform()
