@@ -94,8 +94,11 @@ catkin_python_setup()
 generate_dynamic_reconfigure_options(
    cfg/MusicalCane.cfg
    cfg/WallAudio.cfg
+   cfg/GridGame2.cfg
+   cfg/OriginalGridGame.cfg
    cfg/SemanticWaypoints.cfg
 )
+
 
 ###################################
 ## catkin specific configuration ##

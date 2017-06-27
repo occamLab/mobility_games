@@ -18,13 +18,15 @@ from mobility_games.utils.helper_functions import angle_diff
 import time 
 import sys
 from rospkg import RosPack
+from mobility_games.cfg import OriginalGridGameConfig
+from dynamic_reconfigure.server import Server
 
 class Turns(object):
 
     def __init__(self):
         rospy.init_node("grid_game")
         rospy.Subscriber("/tango_pose", PoseStamped,self.process_pose)
-
+        srv = Server(OriginalGridGameConfig, self.config_callback)
         top = RosPack().get_path('mobility_games')
         self.sound_folder = path.join(top, 'auditory/sound_files')
         self.engine = pyttsx.init()
@@ -37,6 +39,8 @@ class Turns(object):
         self.lastBeepNoise = rospy.Time.now()
         self.lastBeep2Noise = rospy.Time.now()
         self.angleList = [90,-90,180]
+        self.travel_dist = 2.0
+        self.border_radius = 5.0
         self.hasSpoken = False
 
     def process_pose(self, msg):
@@ -48,6 +52,12 @@ class Turns(object):
                                         msg.pose.orientation.z,
                                         msg.pose.orientation.w])
         self.yaw = angles[2]
+
+    def config_callback(self, config, level):
+        self.travel_dist = config['pc_traveledDistance']
+        self.border_radius = config['pc_borderRadius']
+
+        return config
     
     #This funcation make you turn onve reach the goal distance
     def turn_game(self,angle):
@@ -89,11 +99,12 @@ class Turns(object):
             print "None"
             r.sleep()
             pass
-        straightAngle = self.yaw
-        errorAngle = 15*math.pi/180
-        loc_x = self.x
-        loc_y = self.y
+        straightAngle = self.yaw #the angle you are facing 
+        errorAngle = 15*math.pi/180 #threshold of the angle 
+        loc_x = self.x #get you location after you turn
+        loc_y = self.y #get you location after you turn
         while not rospy.is_shutdown():
+            #this make sure htat you stay in straight angle
             if abs(angle_diff(self.yaw, straightAngle)) < errorAngle:  #Makes sure that you are walking in a straigt line
                 if rospy.Time.now() - self.lastBeepNoise > rospy.Duration(1): #Plays the beep sound every second
                     self.beepNoise.close()
@@ -103,7 +114,7 @@ class Turns(object):
                 x = self.x - loc_x
                 y = self.y - loc_y
                 dist = math.sqrt((x**2)+(y**2))
-                if dist >= 2:  #Check to see if you have the goal of 1.5 meter
+                if dist >= self.travel_dist:  #Check to see if you have the goal of 1.5 meter
                     self.dingNoise.play()
                     self.lastDingNoise = rospy.Time.now()
                     degree = random.choice(self.angleList)  #Choose a random angle from the angleList
@@ -115,7 +126,8 @@ class Turns(object):
             out_x = self.x - start_x
             out_y = self.y - start_y
             outside = math.sqrt((out_x**2)+(out_y**2))
-            if(outside > 5):
+            #this check to if you out of the border
+            if(outside > self.border_radius):
                 self.outOfBound(start_x, start_y)
                 break
             r.sleep()
@@ -129,11 +141,11 @@ class Turns(object):
             self.engine.say(speak)
             self.engine.runAndWait()
         self.hasSpoken = True
-        normal = [start_x - self.x, start_y - self.y]
-        theta = [0, 90, 180 , -90]
+        normal = [start_x - self.x, start_y - self.y] #normal vector to the start
+        theta = [0, 90, 180 , -90] #all the possible angle
         best_angle = 0
         best_dotprod = -1
-        for i in range(len(theta)):
+        for i in range(len(theta)): #this calculate al possible angle that make you go back inot the circle
             goal_angle = self.yaw + theta[i]*math.pi/180
             unit = [math.cos(goal_angle), math.sin(goal_angle)]
             dotprod = normal[0] * unit[0] + normal[1] * unit[1]
@@ -150,7 +162,7 @@ class Turns(object):
         straightAngle = self.yaw
         errorAngle = 15*math.pi/180
         self.engine.say("Walk Straight")
-        while dist < 1:
+        while dist < 1: #this make you go back inot circle for a meter
             if abs(angle_diff(self.yaw, straightAngle)) < errorAngle:  #Makes sure that you are walking in a straigt line
                 if rospy.Time.now() - self.lastBeep2Noise > rospy.Duration(1): #Plays the beep sound every second
                     self.beep2Noise.close()
@@ -171,8 +183,8 @@ class Turns(object):
             print "None Run Method"
             r.sleep()
             pass
-        starting_pos_x = self.x
-        starting_pos_y = self.y
+        starting_pos_x = self.x #get you starting location
+        starting_pos_y = self.y #git you starting location 
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()

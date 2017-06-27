@@ -1,0 +1,7 @@
+<launch>
+
+    <node pkg="mobility_games" name="grid_game" type="grid_game.py"/>
+
+    <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen"/>
+
+</launch>
