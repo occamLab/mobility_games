@@ -17,14 +17,6 @@ class AudioFeedback(object):
         top = RosPack().get_path('mobility_games')
         self.sound_folder = os.path.join(top, 'auditory/sound_files')
         rospy.init_node('audio_feedback')
-        rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
-        rospy.Subscriber('/cane_tip', PoseStamped, self.process_cane_tip)
-        rospy.Subscriber('/fisheye_undistorted/tag_detections',
-                         AprilTagDetectionArray,
-                         self.tag_array)
-
-        #   Set up dynamic reconfigure server
-        Server(MusicalCaneConfig, self.config_callback)
 
         #   Set initial values for reconfigure
         self.mode = rospy.get_param("~mode", "sound")
@@ -43,9 +35,15 @@ class AudioFeedback(object):
         self.start = False
         self.num_sweeps = 0
 
-        # TODO: dynamic reconfigure
         self.count_sweeps = True
-        self.reward_every_n_sweeps = 10
+        self.reward_at = {}
+        self.reward_at[10] = True
+        self.reward_at[20] = True
+        self.reward_at[50] = True
+        self.reward_at[100] = True
+        self.reward_at[250] = True
+        self.reward_at[500] = True
+        self.reward_at[1000] = True
 
         #   Associate April tag ID to different wav files.
         self.tag_to_music_file = {3: "ambience2.wav", 12: "generic_music.wav"}
@@ -72,6 +70,15 @@ class AudioFeedback(object):
 
         self.engine = pyttsx.init()
         self.hasSpoken = False
+
+        #   Set up dynamic reconfigure server
+        Server(MusicalCaneConfig, self.config_callback)
+
+        rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
+        rospy.Subscriber('/cane_tip', PoseStamped, self.process_cane_tip)
+        rospy.Subscriber('/fisheye_undistorted/tag_detections',
+                         AprilTagDetectionArray,
+                         self.tag_array)
 
     def process_pose(self, msg):
         """ Updates position and orientation of Tango """
@@ -133,6 +140,16 @@ class AudioFeedback(object):
         self.mode = config["mode"]
         self.sweep_tolerance = config["sweep_tolerance"]
         self.sweep_range = config["sweep_range"]
+        self.count_sweeps = config["count_sweeps"]
+
+        # set reward checkpoints
+        self.reward_at[10] = config["reward_at_10"]
+        self.reward_at[20] = config["reward_at_20"]
+        self.reward_at[50] = config["reward_at_50"]
+        self.reward_at[100] = config["reward_at_100"]
+        self.reward_at[250] = config["reward_at_250"]
+        self.reward_at[500] = config["reward_at_500"]
+        self.reward_at[1000] = config["reward_at_1000"]
         return config
 
     def run_wav(self):
@@ -211,8 +228,8 @@ class AudioFeedback(object):
                                        self.tag_to_sound_file[should_play]))
                             self.tag_to_sound_object[should_play].play()
 
-                        if self.num_sweeps % self.reward_every_n_sweeps == 0 \
-                                and self.num_sweeps > 0:
+                        if self.num_sweeps in self.reward_at \
+                                and self.reward_at[self.num_sweeps]:
                             self.reward_sound_object.close()
                             self.reward_sound_object = \
                                 pw.Wav(os.path.join(self.sound_folder, 'revving.wav'))
