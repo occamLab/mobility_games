@@ -31,10 +31,6 @@ class Wav():
     def close(self):
         #   Stop and close wav object
         self.stream.stop_stream()
-        print('close .5')
         self.stream.close()
-        print('close 1')
         self.wf.close()
-        print('close 2')
         self.p.terminate()
-        print('close 3')
