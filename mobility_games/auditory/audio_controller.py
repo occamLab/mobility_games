@@ -9,20 +9,23 @@ import sys
 def freq(name):
     """ Generates frequency based on note name.
     Example: freq("G4")"""
-
-    letter = name[0]
-    name = name[1:]
-    mod = False
-    if name[0] in ("#", "b"):
-        letter += name[0]
-        name = name[1:]
-    octv = int(name)
-
     freqs = {"C" : 16.35, "C#" : 17.32, "Db" : 17.32, "D" : 18.35,
             "D#" : 19.45, "Eb" : 19.45, "E" : 20.60, "E#" : 21.83, "Fb" : 20.60,
             "F" : 21.83, "F#" : 23.12, "Gb" : 23.12, "G" : 24.50, "G#" : 25.96,
             "Ab" : 25.96, "A" : 27.50, "A#" : 29.14, "Bb" : 29.14, "B" : 30.87,
             "B#" : 32.70, "Cb" : 15.49}
+    try:
+        letter = name[0]
+        name = name[1:]
+        mod = False
+        if name[0] in ("#", "b"):
+            letter += name[0]
+            name = name[1:]
+        octv = int(name)
+    except:
+        letter = "C"
+        octv = 4
+
 
     return freqs.get(letter, "C") * (2 ** octv)
 

@@ -6,6 +6,16 @@ sudo pip install pydub
 sudo pip install pyttsx
 sudo apt-get install ffmpeg
 
+# install pcl
+sudo apt-get install libpcl1.7*
+mkdir ~/Apps
+cd ~/Apps
+git clone https://github.com/strawlab/python-pcl.git
+sudo pip install Cython=0.21.2
+cd python-pcl
+make
+sudo python setup.py install
+
 # install ros dependencies in catkin_ws 
 # if already installed, will print an error but won't do anything bad
 cd ~/catkin_ws/src
