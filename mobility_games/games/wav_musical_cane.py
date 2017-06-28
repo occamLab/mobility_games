@@ -65,8 +65,7 @@ class AudioFeedback(object):
                        self.tag_to_music_file[tag_id]))
 
         self.reward_sound_file = None
-        self.reward_sound_object = \
-            pw.Wav(os.path.join(self.sound_folder, 'revving.wav'))
+        self.reward_sound_object = None
 
         self.engine = pyttsx.init()
         self.hasSpoken = False
@@ -141,6 +140,9 @@ class AudioFeedback(object):
         self.sweep_tolerance = config["sweep_tolerance"]
         self.sweep_range = config["sweep_range"]
         self.count_sweeps = config["count_sweeps"]
+
+        self.reward_sound_file = config["rewardSound"]
+        self.reward_sound_object = pw.Wav(self.reward_sound_file)
 
         # set reward checkpoints
         self.reward_at[10] = config["reward_at_10"]
@@ -230,9 +232,10 @@ class AudioFeedback(object):
 
                         if self.num_sweeps in self.reward_at \
                                 and self.reward_at[self.num_sweeps]:
-                            self.reward_sound_object.close()
+                            if self.reward_sound_object:
+                                self.reward_sound_object.close()
                             self.reward_sound_object = \
-                                pw.Wav(os.path.join(self.sound_folder, 'revving.wav'))
+                                pw.Wav(self.reward_sound_file)
                             self.reward_sound_object.play()
 
                 # Note previous cane position
