@@ -3,7 +3,7 @@ from dynamic_reconfigure.parameter_generator_catkin import *
 import os
 from rospkg import RosPack
 
-def soundFinder(gen):
+def soundFinder(gen, param_name = "rewardSound"):
     top = RosPack().get_path("mobility_games")
     sounds = [];
     firstsound = None;
@@ -17,4 +17,4 @@ def soundFinder(gen):
                 sounds.append(gen.const(fname[:-4], str_t, os.path.join(dirname, fname), fname))
                 print(fname[:-4])
     sound_enum = gen.enum(sounds, "An enum to set .wav Sound")
-    gen.add("rewardSound", str_t, 0, "Filename of Sound file to be used as reward", firstsound, edit_method=sound_enum)
+    gen.add(param_name, str_t, 0, "Filename of Sound file to be used as reward", firstsound, edit_method=sound_enum)
