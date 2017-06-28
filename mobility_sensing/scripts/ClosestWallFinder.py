@@ -251,5 +251,5 @@ class ClosestWallFinder(object):
 
 
 if __name__ == '__main__': #Run Code
-    node = ClosestWallFinder(visualized = True) #, True) #, True)
+    node = ClosestWallFinder(visualized = True)
     node.run()
