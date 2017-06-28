@@ -42,6 +42,9 @@ class AudioFeedback(object):
 
         self.start = False
         self.num_sweeps = 0
+
+        # TODO: dynamic reconfigure
+        self.count_sweeps = True
         self.reward_every_n_sweeps = 10
 
         #   Associate April tag ID to different wav files.
@@ -66,6 +69,9 @@ class AudioFeedback(object):
         self.reward_sound_file = None
         self.reward_sound_object = \
             pw.Wav(os.path.join(self.sound_folder, 'revving.wav'))
+
+        self.engine = pyttsx.init()
+        self.hasSpoken = False
 
     def process_pose(self, msg):
         """ Updates position and orientation of Tango """
@@ -190,11 +196,20 @@ class AudioFeedback(object):
 
                     #   If in sound mode, play corresponding sound
                     if self.mode == "sound":
-                        self.tag_to_sound_object[should_play].close()
-                        self.tag_to_sound_object[should_play] = \
-                            pw.Wav(os.path.join(self.sound_folder,
-                                   self.tag_to_sound_file[should_play]))
-                        self.tag_to_sound_object[should_play].play()
+                        if self.count_sweeps:
+                            self.engine.say(str(self.num_sweeps))
+                            if not self.hasSpoken:
+                                self.engine.runAndWait()
+                                self.engine.say(str(self.num_sweeps))
+                                self.engine.runAndWait()
+                            self.hasSpoken = True
+                        else:
+                            # play sound
+                            self.tag_to_sound_object[should_play].close()
+                            self.tag_to_sound_object[should_play] = \
+                                pw.Wav(os.path.join(self.sound_folder,
+                                       self.tag_to_sound_file[should_play]))
+                            self.tag_to_sound_object[should_play].play()
 
                         if self.num_sweeps % self.reward_every_n_sweeps == 0 \
                                 and self.num_sweeps > 0:
