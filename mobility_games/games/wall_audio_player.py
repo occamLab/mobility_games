@@ -77,20 +77,16 @@ class wall_audio_player(object):
             self.r = rospy.Rate(self.speeddefault) #same as above but with the defaultspeed
 
     def run(self):
-        #self.r =  #Attempts to run at a rate of 10 times a second (although never reaches this speed)
-        #self.dist = 0
         freq = ac.freq('C5') #set default pitch to be overwritten and saved.
         vol = .8 #set default volume to be overwritten and saved.
         while not rospy.is_shutdown(): #Start main while loop
             #self.dist = random.random()*4
             if not self.dist is None and self.on: #check if is on and has a distance
-                #if rospy.Time.now()-self.last_sound_time > rospy.Duration(.01) and self.walldist is not 0: #If it's been longer than 2 seconds since last sound, and the wall distance is greater than half a meter
                 self.last_sound_time = rospy.Time.now() #reset sound time
                 if abs(self.dist) < self.altsounddist and self.ding:
                     rewardsound=pw.Wav(self.dingsound)
                     rewardsound.play()
-                    self.dingHappened = True;
-                    #print('dinged')
+                    self.dingHappened = True
 
                 else:
                     freq = ac.freq('C5') #set default pitch (to be overwritten)
@@ -100,10 +96,6 @@ class wall_audio_player(object):
                     fadeoutendtime = 1.0*self.rate
                     fadeintime = .2*self.rate
                     fadeouttime = .2*self.rate
-                    #print("rate: " + str(self.rate))
-                    #if (self.track):
-                        #Do Music Tracks based on distance, further away = less music
-                    #    pass
 
                     """ MAKE THIS A PART OF THE UPDATE OF THE POSITION INSTEAD OF RECALCULATING ALL OF THIS FOR EVERY SOUND PLAYED!!!!!"""
                     if (self.pitch): #if pitch modulation
@@ -118,19 +110,13 @@ class wall_audio_player(object):
                     if (self.vol): #if volume modulation
                         vol = (.8/(1+math.exp((self.dist)/1.5-1))+.2)*vol #insert volume function here. that goes from 1 to 0 with increasing distance to wall.
                     else:
-                        try: #try to set default volume
-                            vol = self.voldefault
-                        except: #if that doesn't work, do nothing, leaving the volume as whatever it previously was.
-                            pass
+                        vol = self.voldefault
                     #self.synth = ac.delay(self.synth, 1, self.s*.2, .5) #add delay to the synth
 
                     if not self.track: #if no track
                         synth = ac.synth(freq, synth="sin", fadebool=False) #create synth for sound
                         synth = ac.fade_out(ac.fade_in(synth, fadeinendtime, fadeintime), fadeoutendtime, fadeouttime)
                         ac.playstream(synth, self.player, seconds = seconds, volume = vol)#synth, self.player, seconds = .5, volume = vol)
-                    else:
-                        """ Set Up Music Here"""
-                        pass
             #print(walldistself.dist)
             self.r.sleep() #wait until next iteration
             if (self.dingHappened):
