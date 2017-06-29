@@ -34,8 +34,9 @@ class Turns(object):
         srv = Server(GridGame2Config, self.config_callback)
         top = RosPack().get_path('mobility_games') 
         self.sound_folder = path.join(top, 'auditory/sound_files')
-        self.engine = pyttsx.init() 
-        self.dingNoise = pw.Wav(path.join(self.sound_folder, "ding.wav"))
+        self.engine = pyttsx.init()
+        self.dingNoise_file = path.join(self.sound_folder, "ding.wav") 
+        self.dingNoise = pw.Wav(self.dingNoise_file)
         self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
         self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
         self.lastDingNoise = rospy.Time.now() 
@@ -69,6 +70,8 @@ class Turns(object):
     def config_callback(self, config, level):
         self.traveled_distance = config['pc_traveledDistance']
         self.wall_threshold = config['pc_distanceFromWall']
+        self.dingNoise_file = config['rewardSound']
+        self.dingNoise = pw.Wav(self.dingNoise_file)
 
         return config
 
@@ -169,7 +172,7 @@ class Turns(object):
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()
-                self.dingNoise = pw.Wav(path.join(node.sound_folder, "ding.wav"))
+                self.dingNoise = pw.Wav(self.dingNoise_file)
                 self.straight()
             r.sleep()
 

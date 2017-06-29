@@ -30,7 +30,8 @@ class Turns(object):
         top = RosPack().get_path('mobility_games')
         self.sound_folder = path.join(top, 'auditory/sound_files')
         self.engine = pyttsx.init()
-        self.dingNoise = pw.Wav(path.join(self.sound_folder, "ding.wav"))
+        self.dingNoise_file = path.join(self.sound_folder, "ding.wav")
+        self.dingNoise = pw.Wav(self.dingNoise_file)
         self.jumpNoise = pw.Wav(path.join(self.sound_folder, "jomp.wav"))
         self.beepNoise = pw.Wav(path.join(self.sound_folder, "beep3.wav"))
         self.beep2Noise = pw.Wav(path.join(self.sound_folder, "beep2.wav"))
@@ -56,7 +57,8 @@ class Turns(object):
     def config_callback(self, config, level):
         self.travel_dist = config['pc_traveledDistance']
         self.border_radius = config['pc_borderRadius']
-
+        self.dingNoise_file = config['rewardSound']
+        self.dingNoise = pw.Wav(self.dingNoise_file)
         return config
     
     #This funcation make you turn onve reach the goal distance
@@ -188,7 +190,7 @@ class Turns(object):
         while not rospy.is_shutdown():
             if rospy.Time.now() - self.lastDingNoise > rospy.Duration(2):
                 self.dingNoise.close()
-                self.dingNoise = pw.Wav(path.join(node.sound_folder, "ding.wav"))
+                self.dingNoise = pw.Wav(self.dingNoise_file)
                 self.straight(starting_pos_x, starting_pos_y)
             r.sleep()
 
