@@ -20,7 +20,6 @@ class AudioFeedback(object):
 
         #   Set initial values for reconfigure
         self.mode = rospy.get_param("~mode", "sound")
-        self.mode = 'sound'
         self.sweep_tolerance = rospy.get_param("~sweep_tolerance", "2.0")
         self.sweep_range = rospy.get_param("~sweep_range", "0.6")
 
@@ -37,13 +36,8 @@ class AudioFeedback(object):
 
         self.count_sweeps = True
         self.reward_at = {}
-        self.reward_at[10] = True
-        self.reward_at[20] = True
-        self.reward_at[50] = True
-        self.reward_at[100] = True
-        self.reward_at[250] = True
-        self.reward_at[500] = True
-        self.reward_at[1000] = True
+        for num in [10, 20, 50, 100, 250, 500, 1000]:
+            self.reward_at[num] = True
 
         #   Associate April tag ID to different wav files.
         self.tag_to_music_file = {3: "ambience2.wav", 12: "generic_music.wav"}
@@ -145,13 +139,9 @@ class AudioFeedback(object):
         self.reward_sound_object = pw.Wav(self.reward_sound_file)
 
         # set reward checkpoints
-        self.reward_at[10] = config["reward_at_10"]
-        self.reward_at[20] = config["reward_at_20"]
-        self.reward_at[50] = config["reward_at_50"]
-        self.reward_at[100] = config["reward_at_100"]
-        self.reward_at[250] = config["reward_at_250"]
-        self.reward_at[500] = config["reward_at_500"]
-        self.reward_at[1000] = config["reward_at_1000"]
+        for num in [10, 20, 50, 100, 250, 500, 1000]:
+            self.reward_at[num] = config["reward_at_%s" % num]
+
         return config
 
     def run_wav(self):
