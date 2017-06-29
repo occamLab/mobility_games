@@ -17,9 +17,6 @@ import time
 from dynamic_reconfigure.server import Server
 from mobility_games.cfg import SemanticWaypointsConfig
 
-def parse_tag_id(tag_x):
-    return tag_x.split('_')[1]
-
 class SemanticWayPoints(object):
     def __init__(self):
         self.calibration_mode = True        # Flag to keep track of game state -- Calibration/Run Modes
@@ -50,6 +47,8 @@ class SemanticWayPoints(object):
         self.engine = pyttsx.init()         # Speech engine
         top = RosPack().get_path('mobility_games')
         self.sound_folder = path.join(top, 'auditory/sound_files')
+        self.rewardSound = path.join(self.sound_folder, 'ding.wav')
+
 
         rospy.init_node('semantic_waypoints')
         self.listener = tf.TransformListener()
@@ -62,6 +61,7 @@ class SemanticWayPoints(object):
     
     def config_callback(self, config, level):
         self.proximity_to_destination = config['proximity_to_destination']
+        self.rewardSound = config['rewardSound']
         return config
    
     
@@ -205,7 +205,7 @@ class SemanticWayPoints(object):
             self.start_new_game()
 
     def finish_run(self, tag_id):
-        system('aplay ' + path.join(self.sound_folder, 'ding.wav'))
+        system('aplay ' + self.rewardSound)
         self.start_run = False
         confirm_msg = "Found " + self.tag_id_to_name[tag_id]
         print confirm_msg
@@ -222,7 +222,7 @@ class SemanticWayPoints(object):
         print '==========================' + '\n'
         self.start_new_game()
 
-    def tag_callback(self, msg):
+    def tag_callback(self, msg):    
         # Processes the april tags currently in Tango's view.
         # Ask user to name april tags
         if self.calibration_mode:
