@@ -10,14 +10,13 @@ from dynamic_reconfigure.server import Server
 from mobility_games.cfg import WallAudioConfig
 from rospkg import RosPack
 import mobility_games.auditory.play_wav as pw
+import time
 
 class wall_audio_player(object):
     def __init__(self):
         top = RosPack().get_path("mobility_games")
         rospy.init_node('smart_wall_audio')
         rospy.Subscriber('/smart_wall_dist', Float64, self.get_dist) #recieves wall distance
-        self.dingsound = path.join(top, 'auditory/sound_files/ding.wav') #sets path to dingsound
-        srv = Server(WallAudioConfig, self.config_callback) #starts dynamic reconfigure server
         #self.gmode = rospy.get_param('~pc_audio_gmode', 'pvr')
         self.pitch = rospy.get_param('~pitch', True) #if pitch is modulated
         self.pitchdefault = rospy.get_param('~pitchDefault', 'A4') #set pitch if not modulated
@@ -26,12 +25,13 @@ class wall_audio_player(object):
         self.speed = rospy.get_param('~rate', True) #if rate is modulated
         self.speeddefault = rospy.get_param('~rateDefault', 20); #set rate if not modulated
         self.track = rospy.get_param('~track', False) #if tracks are used
-        self.ding = rospy.get_param('~ding', False) #if dingsound is used as reward
+        self.ding = rospy.get_param('~ding', False) #if rewardSound is used as reward
         self.randrange = rospy.get_param('~randRange', 0); #randomness of the sound range
         self.quantizetype = rospy.get_param('~quantType', 'M') #quantize type
         self.key = rospy.get_param('~key', 'A') #quantize key
         self.on = rospy.get_param('~on', False) #pause button
         self.altsounddist = rospy.get_param('~successZoneSize', .5) #success distance
+        self.rewardSound = rospy.get_param('~rewardSound', path.join(top, 'auditory/sound_files/ding.wav'))#sets path to rewardSound
         self.maxfreqdist = 5.0 #distance at which frequency is maxed out
         self.maxfreq = 2092.8 #maximum frequency
         self.minfreq = 130.8 #minimum frequency
@@ -42,7 +42,9 @@ class wall_audio_player(object):
         self.player = ac.player() #create audio player.
         self.rate = 1.0/self.speeddefault; #set starting rate
         self.r = rospy.Rate(1.0/self.rate); #set Rospy spinner at rate
-        self.dingHappened = False; #check if ding has happened and whether the sound should be closed.
+        #self.dingHappened = False; #check if ding has happened and whether the sound should be closed.
+        self.currReward = pw.Wav(self.rewardSound)
+        srv = Server(WallAudioConfig, self.config_callback) #starts dynamic reconfigure server
 
     def config_callback(self, config, level):
         """
@@ -60,6 +62,9 @@ class wall_audio_player(object):
         self.pitchdefault = config['pitchDefault']
         self.voldefault = config['volDefault']
         self.speeddefault = config['rateDefault']
+        self.rewardSound = config['rewardSound']
+        if (not self.currReward.stream.is_active()):
+            self.currReward = pw.Wav(self.rewardSound)
         return config
 
     def get_dist(self, msg):
@@ -84,11 +89,21 @@ class wall_audio_player(object):
             if not self.dist is None and self.on: #check if is on and has a distance
                 self.last_sound_time = rospy.Time.now() #reset sound time
                 if abs(self.dist) < self.altsounddist and self.ding:
-                    rewardsound=pw.Wav(self.dingsound)
-                    rewardsound.play()
-                    self.dingHappened = True
+                    if (not self.currReward.stream.is_active()):
+                        try:
+                            self.currReward.close()
+                        except:
+                            print('failed to close old sound')
+                        try:
+                            self.currReward = pw.Wav(self.rewardSound)
+                        except:
+                            print('failed to create new sound')
+                    self.currReward.play()
+                    #time.sleep(1)
 
                 else:
+                    if (self.currReward.stream.is_active()):
+                        self.currReward.pause()
                     freq = ac.freq('C5') #set default pitch (to be overwritten)
                     vol = .8 #set default volume (to be overwritten)
                     seconds = 5*self.rate
@@ -119,9 +134,8 @@ class wall_audio_player(object):
                         ac.playstream(synth, self.player, seconds = seconds, volume = vol)#synth, self.player, seconds = .5, volume = vol)
             #print(walldistself.dist)
             self.r.sleep() #wait until next iteration
-            if (self.dingHappened):
-                self.dingHappened = False
-                rewardsound.close()
+            if (not self.currReward.stream.is_active()):
+                self.currReward.pause()
 
 
 if __name__ == '__main__': #Run Code
