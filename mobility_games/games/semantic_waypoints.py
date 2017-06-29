@@ -222,7 +222,7 @@ class SemanticWayPoints(object):
         print '==========================' + '\n'
         self.start_new_game()
 
-    def tag_callback(self, msg):    
+    def tag_callback(self, msg):
         # Processes the april tags currently in Tango's view.
         # Ask user to name april tags
         if self.calibration_mode:
