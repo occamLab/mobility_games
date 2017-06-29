@@ -2,22 +2,11 @@
 
 import rospy
 from mobility_games.auditory import play_wav as pw
-from geometry_msgs.msg import PoseStamped, Pose, Point, Vector3
+from geometry_msgs.msg import PoseStamped
 from tf.transformations import euler_from_quaternion
 from apriltags_ros.msg import AprilTagDetectionArray
-import math
-from std_msgs.msg import Header, ColorRGBA
-import random
-from visualization_msgs.msg import Marker
 import pyttsx
 import os
-from os import system
-import numpy as np
-import pyaudio
-import wave
-import time
-import sys
-from mobility_games.auditory.audio_controller import *
 from rospkg import RosPack
 from dynamic_reconfigure.server import Server
 from mobility_games.cfg import MusicalCaneConfig
@@ -28,17 +17,9 @@ class AudioFeedback(object):
         top = RosPack().get_path('mobility_games')
         self.sound_folder = os.path.join(top, 'auditory/sound_files')
         rospy.init_node('audio_feedback')
-        rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
-        rospy.Subscriber('/cane_tip', PoseStamped, self.process_cane_tip)
-        rospy.Subscriber('/fisheye_undistorted/tag_detections',
-                        AprilTagDetectionArray,
-                        self.tag_array)
-
-        #   Set up dynamic reconfigure server
-        srv = Server(MusicalCaneConfig, self.config_callback)
 
         #   Set initial values for reconfigure
-        self.mode = rospy.get_param("~mode", "music")
+        self.mode = rospy.get_param("~mode", "sound")
         self.sweep_tolerance = rospy.get_param("~sweep_tolerance", "2.0")
         self.sweep_range = rospy.get_param("~sweep_range", "0.6")
 
@@ -49,27 +30,48 @@ class AudioFeedback(object):
         self.cane_x = None
         self.cane_y = None
         self.cane_z = None
+
         self.start = False
+        self.num_sweeps = 0
+
+        self.count_sweeps = True
+        self.reward_at = {}
+        for num in [10, 20, 50, 100, 250, 500, 1000]:
+            self.reward_at[num] = True
 
         #   Associate April tag ID to different wav files.
-        self.tag_to_music_file = {3 : "ambience2.wav", 12 : "generic_music.wav"}
+        self.tag_to_music_file = {3: "ambience2.wav", 12: "generic_music.wav"}
         self.tag_to_music_object = {}
 
-        self.tag_to_sound_file = {3 : "ding.wav", 12 : "beep.wav"}
+        self.tag_to_sound_file = {3: "ding.wav", 12: "beep.wav"}
         self.tag_to_sound_object = {}
 
         for tag_id in self.tag_to_music_file:
             #   Create wav object of each track in music object dictionary
             self.tag_to_music_object[tag_id] = \
                 pw.Wav(os.path.join(self.sound_folder,
-                self.tag_to_music_file[tag_id]))
+                       self.tag_to_music_file[tag_id]))
 
         for tag_id in self.tag_to_sound_file:
             #   Create wav obejct of each sound file in sound disctionary
             self.tag_to_sound_object[tag_id] = \
                 pw.Wav(os.path.join(self.sound_folder,
-                self.tag_to_music_file[tag_id]))
+                       self.tag_to_music_file[tag_id]))
 
+        self.reward_sound_file = None
+        self.reward_sound_object = None
+
+        self.engine = pyttsx.init()
+        self.hasSpoken = False
+
+        #   Set up dynamic reconfigure server
+        Server(MusicalCaneConfig, self.config_callback)
+
+        rospy.Subscriber('/tango_pose', PoseStamped, self.process_pose)
+        rospy.Subscriber('/cane_tip', PoseStamped, self.process_cane_tip)
+        rospy.Subscriber('/fisheye_undistorted/tag_detections',
+                         AprilTagDetectionArray,
+                         self.tag_array)
 
     def process_pose(self, msg):
         """ Updates position and orientation of Tango """
@@ -83,7 +85,6 @@ class AudioFeedback(object):
                                         msg.pose.orientation.w])
         self.yaw = angles[2]
 
-
     def process_cane_tip(self, msg):
         """ Updates position of the tip of the user's cane in 3D space, based
             on an AR tag 29 inches from the cane tip. """
@@ -91,10 +92,6 @@ class AudioFeedback(object):
         self.cane_x = msg.pose.position.x
         self.cane_y = msg.pose.position.y
         self.cane_z = msg.pose.position.z
-        angles = euler_from_quaternion([msg.pose.orientation.x,
-                                        msg.pose.orientation.y,
-                                        msg.pose.orientation.z,
-                                        msg.pose.orientation.w])
 
     def tag_array(self, msg):
         """ Processes the april tags currently in Tango's view.
@@ -105,7 +102,7 @@ class AudioFeedback(object):
         self.orientation_list = []
         self.id_list = []
 
-        #TODO Add a wait for transform and remove try/except
+        # TODO Add a wait for transform and remove try/except
         #   Occasionally, transform will give error because of differences in
         #   timestamp. The except provides tag ID without using tf.
         try:
@@ -132,16 +129,24 @@ class AudioFeedback(object):
                 self.tag_list.append((x, y, z, tag_id))
                 self.id_list.append(tag_id)
 
-
     def config_callback(self, config, level):
         self.mode = config["mode"]
         self.sweep_tolerance = config["sweep_tolerance"]
         self.sweep_range = config["sweep_range"]
+        self.count_sweeps = config["count_sweeps"]
+
+        self.reward_sound_file = config["rewardSound"]
+        self.reward_sound_object = pw.Wav(self.reward_sound_file)
+
+        # set reward checkpoints
+        for num in [10, 20, 50, 100, 250, 500, 1000]:
+            self.reward_at[num] = config["reward_at_%s" % num]
+
         return config
 
     def run_wav(self):
         """ Plays a wav file while the user is sweeping the cane consistently.
-            Pauses music when the cane stops, and resumes when it continues. """
+            Pauses music when the cane stops, and resumes when it continues."""
 
         r = rospy.Rate(10)
         print("Searching for Tango...")
@@ -152,7 +157,7 @@ class AudioFeedback(object):
 
             if not self.start:
                 print("X position: " + str(self.x),
-                    "Cane x position: " + str(self.cane_x))
+                      "Cane x position: " + str(self.cane_x))
 
             #   Start program if receiving pose from Tango
             if self.x and self.cane_x and not self.start:
@@ -192,20 +197,38 @@ class AudioFeedback(object):
 
                 #   If the cane has passed the midline (y = 0), start music
                 if (self.cane_y - offset) * (self.cane_y_prev - offset) <= 0:
+                    self.num_sweeps += 1
                     should_play = visible_tag
                     last_sweep = rospy.Time.now()
                     print("Reached point %s." % offset_selection)
-                    offset_selection = (offset_selection + 1) % len(cane_points):
+                    offset_selection = (offset_selection + 1) % len(cane_points)
 
                     #   If in sound mode, play corresponding sound
                     if self.mode == "sound":
-                        self.tag_to_sound_object[should_play].close()
-                        self.tag_to_sound_object[should_play] = \
-                            pw.Wav(os.path.join(self.sound_folder,
-                            self.tag_to_sound_file[should_play]))
-                        self.tag_to_sound_object[should_play].play()
+                        if self.count_sweeps:
+                            self.engine.say(str(self.num_sweeps))
+                            if not self.hasSpoken:
+                                self.engine.runAndWait()
+                                self.engine.say(str(self.num_sweeps))
+                                self.engine.runAndWait()
+                            self.hasSpoken = True
+                        else:
+                            # play sound
+                            self.tag_to_sound_object[should_play].close()
+                            self.tag_to_sound_object[should_play] = \
+                                pw.Wav(os.path.join(self.sound_folder,
+                                       self.tag_to_sound_file[should_play]))
+                            self.tag_to_sound_object[should_play].play()
 
-                #   Note previous cane position
+                        if self.num_sweeps in self.reward_at \
+                                and self.reward_at[self.num_sweeps]:
+                            if self.reward_sound_object:
+                                self.reward_sound_object.close()
+                            self.reward_sound_object = \
+                                pw.Wav(self.reward_sound_file)
+                            self.reward_sound_object.play()
+
+                # Note previous cane position
                 if self.cane_y_prev != self.cane_y:
                     self.cane_y_prev = self.cane_y
 
@@ -213,6 +236,7 @@ class AudioFeedback(object):
                 if rospy.Time.now() - last_sweep > rospy.Duration(self.sweep_tolerance):
                     should_play = -1
 
+                print self.mode
                 #   Music should not play if not in music mode
                 if self.mode != "music":
                     should_play = -1
@@ -239,7 +263,7 @@ class AudioFeedback(object):
                     self.tag_to_music_object[playing].close()
                     self.tag_to_music_object[playing] = \
                         pw.Wav(os.path.join(self.sound_folder,
-                        self.tag_to_music_file[visible_tag]))
+                               self.tag_to_music_file[visible_tag]))
                     self.tag_to_music_object[playing].play()
 
             #   Run at 10 loops per second
