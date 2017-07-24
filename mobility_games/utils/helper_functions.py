@@ -26,11 +26,42 @@ def convert_translation_rotation_to_pose(translation, rotation):
     return Pose(position=Point(x=translation[0],y=translation[1],z=translation[2]), orientation=Quaternion(x=rotation[0],y=rotation[1],z=rotation[2],w=rotation[3]))
 
 def convert_pose_inverse_transform(pose):
-    """ Helper method to invert a transform (this is built into the tf C++ classes, but ommitted from Python) """
+    """ Helper method to invert a transform (this is built into the tf C++ classes, but ommitted from Python)
+    IMPORTANT NOTE! PS! PLZ READ!::::::::::::::::: THIS ONLY WORKS FOR 2D"""
+    translation = np.zeros((3,1))
+    translation[0] = pose.position.x
+    translation[1] = pose.position.y
+    translation[2] = pose.position.z
+    #translation[3] = 1.0
+
+    rotation = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
+    #was fine
+    T = tf.transformations.quaternion_matrix(rotation)
+    T[:-1, -1] = np.squeeze(np.asarray(translation))
+    T = np.asmatrix(T)
+    inv = T.I
+    #print(inv)
+    new_rot = tf.transformations.quaternion_from_matrix(inv)
+    new_trans = tf.transformations.translation_from_matrix(inv)
+    return (new_trans, new_rot)
+
+def invert_transform_2(trans, rot):
+    """The Sequel to the above function #Classic #Lit #Get_Wrecked_Kids"""
+    T = tf.transformations.quaternion_matrix(rot)
+    T[:-1, -1] = np.asarray(trans)
+    T = np.asmatrix(T)
+    inv = T.I
+    #print(inv)
+    new_rot = tf.transformations.quaternion_from_matrix(inv)
+    new_trans = tf.transformations.translation_from_matrix(inv)
+    return (new_trans, new_rot)
+
+"""def convert_pose_transform(pose):
+    "" Helper method to invert a transform (this is built into the tf C++ classes, but ommitted from Python) ""
     translation = np.zeros((4,1))
-    translation[0] = -pose.position.x
-    translation[1] = -pose.position.y
-    translation[2] = -pose.position.z
+    translation[0] = pose.position.x
+    translation[1] = pose.position.y
+    translation[2] = pose.position.z
     translation[3] = 1.0
 
     rotation = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
@@ -40,7 +71,16 @@ def convert_pose_inverse_transform(pose):
 
     translation = (transformed_translation[0], transformed_translation[1], transformed_translation[2])
     rotation = quaternion_from_matrix(rotation)
-    return (translation, rotation)
+    return (translation, rotation)"""
+
+"""def quaternion_multiply(quaternion1, quaternion0):
+    w0, x0, y0, z0 = [quaternion0.w, quaternion0.x, quaternion0.y, quaternion0.z]
+    w1, x1, y1, z1 = [quaternion0.w, quaternion0.x, quaternion0.y, quaternion0.z]
+    result = np.array([-x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,
+                     x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
+                     -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
+                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=np.float64)
+    return Quaternion(result[1],result[2],result[3],result[0]);"""
 
 def convert_pose_to_xy_and_theta(pose):
     """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
