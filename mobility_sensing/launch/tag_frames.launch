@@ -22,7 +22,19 @@
       {id: 2, size: 0.165},
       {id: 3, size: 0.165},
       {id: 4, size: 0.165},
-      {id: 13, size: 0.053}]
+      {id: 13, size: 0.053},
+      {id: 20, size: 0.165},
+      {id: 21, size: 0.165},
+      {id: 22, size: 0.165},
+      {id: 23, size: 0.165},
+      {id: 24, size: 0.165},
+      {id: 25, size: 0.165},
+      {id: 26, size: 0.165},
+      {id: 27, size: 0.165},
+      {id: 28, size: 0.165},
+      {id: 29, size: 0.165},
+      {id: 30, size: 0.165},
+      {id: 584, size: 0.165}]
     </rosparam>
   </node>
 

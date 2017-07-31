@@ -43,6 +43,7 @@ class TagFramesSemantic:
         self.translations = {}
         self.rotations = {}
         self.tag_see = None
+        self.first = True
 
 
     def tags_detected(self):
@@ -61,29 +62,30 @@ class TagFramesSemantic:
         return new_tags_seen                                #return
 
 
-    def update_AR_odom_transform(self, tag_frame):
+    def update_AR_odom_transform(self):
         """
         This function updates the AR (parent) to Odom (child) transform information.
         If it fails to find this information, the previous transform remains in effect.
         """
 
         if (self.listener.frameExists("odom")
-                and self.listener.frameExists(tag_frame)):                  #check that listeners exist
+                and self.listener.frameExists(self.first_tag)):                  #check that listeners exist
 
             try:
-                t = self.listener.getLatestCommonTime("odom", tag_frame)    # get the latest common time
-
-                trans, rot = self.listener.lookupTransform(                 # get updated transform
-                        tag_frame, "odom", t)
-
-                self.translations[tag_frame] = trans                        # update translation and rotation
-                self.rotations[tag_frame] = rot
+                t = self.listener.getLatestCommonTime("odom", self.first_tag)    # get the latest common time
+                if self.listener.canTransform(self.first_tag, "odom", t):
+                    #print 'latest common time: %s' %t
+                    trans, rot = self.listener.lookupTransform(                 # get updated transform
+                            self.first_tag, "odom", t)
+                    self.translations[self.first_tag] = trans                        # update translation and rotation
+                    self.rotations[self.first_tag] = rot
 
             except (tf.ExtrapolationException,
                     tf.LookupException,
                     tf.ConnectivityException) as e:
-                #pass
+                pass
                 print e
+                print'0' #This error happens when the tag representing AR no longer exists.
 
 
     def broadcast_AR_odom_transform(self):
@@ -101,7 +103,9 @@ class TagFramesSemantic:
                     "AR")
 
         except (KeyError) as e:
+            #pass
             print e
+            print'-1'
 
 
     def update_tag_AR_transform(self, tag_frame):
@@ -113,22 +117,19 @@ class TagFramesSemantic:
                 and self.listener.frameExists(tag_frame)):                  # check that frames exists
             try:
                 t = self.listener.getLatestCommonTime("AR", tag_frame)      # get latest common time
-
-                # get transform to make AR (parent) & tag_frame (child)
-                trans, rot = self.listener.lookupTransform(                 # lookup translation and rotation
-                        "AR", tag_frame, t)
-
-                #print "UPDATING!", tag_frame, trans, rot
-                self.translations[tag_frame] = trans                        # update transform.
-                self.rotations[tag_frame] = rot
-                #self.broadcast_tag_AR_transform(tag_frame)
+                if self.listener.canTransform("AR", tag_frame, t):
+                    trans, rot = self.listener.lookupTransform(                 # lookup translation and rotation
+                            "AR", tag_frame, t)
+                    self.translations[tag_frame] = trans                        # update transform.
+                    self.rotations[tag_frame] = rot
+                    print 'frame_name: %s' %tag_frame
 
             except (tf.ExtrapolationException,
                     tf.LookupException,
                     tf.ConnectivityException) as e:
                 #pass
                 print e
-                #print "SOMETHING WENT WRONG WITH LOADING, PLEASE LOAD AGAIN"
+                print('1')
 
 
     def supplement_update_AR_odom_transform(self, tag_frame, origin_tag):
@@ -136,9 +137,6 @@ class TagFramesSemantic:
         This function updates the AR (parent) to odom (child) transform information BASED ON THE SUPPLEMENT TAG SEEN
         If it fails to find this information, the previous transform remains in effect.
         """
-        #print("AR: " + str(self.listener.frameExists("AR")))
-        #print("tag_frame: " + str(self.listener.frameExists(tag_frame)))
-        #print("AR_frame: " + str(self.listener.frameExists("AR_" + parse_tag_id(tag_frame))))
         if (self.listener.frameExists("AR")
                 and self.listener.frameExists(tag_frame)
                 and self.listener.frameExists("odom")
@@ -172,6 +170,7 @@ class TagFramesSemantic:
                     tf.LookupException,
                     tf.ConnectivityException) as e:
                 print e
+                print('2')
 
 
     def broadcast_tag_AR_transform(self, tag_frame):
@@ -188,8 +187,8 @@ class TagFramesSemantic:
                     "AR")
 
         except (KeyError) as e:
-            #pass
-            print "Key Error"
+            pass
+            #print "Key Error" #THIS ERROR HAPPENS WHEN TAG DOESN'T EXIST IN LIST YET. If the person has not yet recorded a tag but the phone has scene it.
 
 
     def ReadG2O(self, path):
@@ -299,10 +298,12 @@ class TagFramesSemantic:
         while not rospy.is_shutdown():                                      # start while loop
             tags_seen = tags_seen.union(self.load_tags)                     # add loaded tags to tags_seen (if they aren't there yet)
             tags_seen = tags_seen.union(set(self.tags_detected()))          # add detected tags to tags_seen (if they aren't there yet)
-            if len(tags_seen) > 0:                                          # if there are tags that have been seen.
+            if len(tags_seen) > 0 and ((self.AR_Find_Try and self.AR_semantic_calibration) or self.first_tag != None):                                          # if there are tags that have been seen.
                 if self.first_tag is None:                                  # if the first tag hasn't been set
                     self.first_tag = list(tags_seen)[0]                     # set the first tag to the first in the list of seen tags
-                self.update_AR_odom_transform(self.first_tag)               # update the transformation from AR to odom with the first tag
+                if self.first_tag in tags_seen and (not self.AR_semantic_calibration or self.first):
+                    self.first = False
+                    self.update_AR_odom_transform()                         # update the transformation from AR to odom with the first tag
                 self.broadcast_AR_odom_transform()                          # broadcast the AR to odomm transform
                 if self.first_tag in tags_seen:                             # if first tag is still in the seen tags,
                     tags_seen.remove(self.first_tag)                        # remove it.
