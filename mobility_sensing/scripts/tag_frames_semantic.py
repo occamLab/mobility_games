@@ -301,7 +301,7 @@ class TagFramesSemantic:
             if len(tags_seen) > 0 and ((self.AR_Find_Try and self.AR_semantic_calibration) or self.first_tag != None):                                          # if there are tags that have been seen.
                 if self.first_tag is None:                                  # if the first tag hasn't been set
                     self.first_tag = list(tags_seen)[0]                     # set the first tag to the first in the list of seen tags
-                if self.first_tag in tags_seen and (not self.AR_semantic_calibration or self.first):
+                if self.first_tag in tags_seen: #and (not self.AR_semantic_calibration or self.first): # PUT THIS BACK IN SOON
                     self.first = False
                     self.update_AR_odom_transform()                         # update the transformation from AR to odom with the first tag
                 self.broadcast_AR_odom_transform()                          # broadcast the AR to odomm transform
