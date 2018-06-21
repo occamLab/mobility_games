@@ -73,19 +73,39 @@ class SemanticWayPoints(object):
        messages.append(message_1)
        self.tag_messages[3] = messages
 
-    def process_pose(self, msg):       #    Onngoing function that updates current x, y, and yaw
+    def process_pose(self, msg):
+        """
+        Get x,y,z and quaternian angles from the current tango pose in odom frame.
+        Update current x, y, and yaw with incoming tango_pose message of message type PoseStamped
+        If in run mode and destination is specified, use the translation from odom to destination to compute
+        distance from current pose to destination.
+        """
+
         if self.tag_id:
             try:
-                self.listener.waitForTransform('odom', 
+                # check prescense of transform from target frame (odom) to source frame (received msg)
+                self.listener.waitForTransform('odom',
                                                msg.header.frame_id, 
                                                msg.header.stamp, 
                                                rospy.Duration(0.5))
+
+                # t = self.listener.getLatestCommonTime("odom", msg.header.frame_id)
+                # pose_trans, pose_rot = self.listener.lookupTransform("odom",
+                #                                            msg.header.frame_id,
+                #                                            t)
+                # print "pose_translation:", pose_trans
+                # print "pose_rotation", pose_rot
+
+                # transform message into odom coordinate frame and return a new PoseStamped message
                 newitem = self.listener.transformPose('odom', msg)
                 self.x = newitem.pose.position.x
                 self.y = newitem.pose.position.y
-                
+
+                # Once in run mode and a target tag is identified.
                 if self.translations:
                     self.distance_to_destination = math.sqrt((self.translations[0] - self.x)**2 + (self.translations[1] - self.y)**2)
+
+                #transform from quaternion angles of tango pose to euler angles
                 angles = euler_from_quaternion([msg.pose.orientation.x,
                                                 msg.pose.orientation.y,
                                                 msg.pose.orientation.z,
@@ -97,7 +117,6 @@ class SemanticWayPoints(object):
 
     def det_speech(self, yaw, cur_pos, goal_pos):
         print type(cur_pos[0])
-
         #   Takes in angle, position, and position of goal. Determines relative
         #   position of goal to Tango and returns text instructions.
         dx = goal_pos[0] - cur_pos[0]
@@ -120,8 +139,15 @@ class SemanticWayPoints(object):
             text = "Something funny happened."
         return text
 
-    # Adds string labels to AR Tags
-    def calibrate_tag(self, tag_id):    
+    def calibrate_tag(self, tag_id):
+        """
+        Update list of visited tags with current tag in frame.
+        Add string labels to AR Tags
+        Update dictionary of mapping of tag name and tag id with newly labeled tag
+
+        :param tag_id: current tag in tango view
+        """
+        print "calibrate this tag", tag_id
         self.visited_tags_calibrate.append(tag_id)
         self.engine.say("Name the AR Tag!")
         tag_name = raw_input("Name the AR Tag: ")
@@ -156,11 +182,16 @@ class SemanticWayPoints(object):
                 self.engine.say(message)
 
     def update_destination_pose(self):
+        """
+        Based on the target tag needs to be found , update pose of the destination relative to the tango.
+        Get transformation from odom to tag frame
+        """
         if self.visited_tags_calibrate[0] == self.tag_id:
             ARFrame = 'AR'
         else:
-            ARFrame = "AR_" + str(self.tag_id);
+            ARFrame = "AR_" + str(self.tag_id)
 
+        #check existance of odom and tag frame
         if (self.listener.frameExists("odom")
                 and self.listener.frameExists(ARFrame)):
 
@@ -169,10 +200,11 @@ class SemanticWayPoints(object):
 
                 # get transform to make tag_frame (parent) & odom (child)
                 trans, rot = self.listener.lookupTransform(
-                        "odom", ARFrame, t)
+                        "odom", ARFrame, t) #get translation and rotation from odom to ARFrame
 
+                # update translation and rotation from tango to tag
                 self.translations = trans
-                # self.rotations = rot
+                #self.rotations = rot
 
             except (tf.ExtrapolationException,
                     tf.LookupException,
@@ -180,20 +212,27 @@ class SemanticWayPoints(object):
                 print e
 
 
-    # Starts new game 
-    #   - Prompt user to enter destination
-    #   - Restart timer
-    #   - End game by typing 'done'
     def start_new_game(self):
+        """
+        Prompt user to enter destination
+        If target tag exists, compute the pose of target tag relative to tango odometry.
+        Start run mode and restart timer
+        End game by typing "done"
+
+        """
         self.engine.say("What would you like to find?")
         search_tag_name = raw_input("What would you like to find? ")
         if search_tag_name in self.tag_name_to_id:
             confirm_msg = "Looking for %s" % search_tag_name
             self.engine.say(confirm_msg)
+
+            # update current tag needs to be found
             self.tag_id = self.tag_name_to_id[search_tag_name]
-            
+
+            # based on input destination tag, update pose of destination tag relative to tango
             self.update_destination_pose()
-           
+
+            # start run mode
             self.start_run = True
             self.start_time = time.time()
         elif search_tag_name == 'done':
@@ -223,17 +262,26 @@ class SemanticWayPoints(object):
         self.start_new_game()
 
     def tag_callback(self, msg):
-        # Processes the april tags currently in Tango's view.
-        # Ask user to name april tags
+        """
+        Processes the april tags currently in Tango's view.
+        Ask user to name april tags in calibration mode.
+
+        """
+        # calibration mode
         if self.calibration_mode:
+            #self.engine.say("Starting calibration mode")
+            print "named tags", self.tag_id_to_name
+            print "visited tags", self.visited_tags_calibrate
             if msg.detections:
+
                 tag_id = msg.detections[0].id
-                
+                print "detect tag", tag_id
+
                 # Only prompt user to input tag name once
                 if not tag_id in self.visited_tags_calibrate:
                     self.calibrate_tag(tag_id)
 
-        # Identify april tags with given string names            
+        # run mode: Identify april tags with given string names
         else:
             if msg.detections:
                 tag_id = msg.detections[0].id
@@ -243,7 +291,6 @@ class SemanticWayPoints(object):
                     self.finish_run(tag_id)
 
     def run_mode(self, msg):
-        # Switch to run mode
         if msg.code == 97:
             print "\nStarting Run Mode..."
             self.calibration_mode = False
@@ -265,8 +312,11 @@ class SemanticWayPoints(object):
         while not rospy.is_shutdown():
             
             if self.start_run and self.distance_to_destination > self.proximity_to_destination and self.x and self.y and self.translations:
+
+                # reupdate destination pose
                 self.update_destination_pose()
-                if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(7.0):
+
+                if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(7):
                     #   If it has been ten seconds since last speech, give voice instructions
                     self.last_say_time = rospy.Time.now()
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))

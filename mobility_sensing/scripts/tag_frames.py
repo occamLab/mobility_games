@@ -27,6 +27,7 @@ class TagFrames:
             have been seen over the history of the listener.
         """
         tags_seen = []
+        # extract all frames broadcasted
         frame_strings = self.listener.getFrameStrings()
         for frame in frame_strings:
             # a tag of some id was found
@@ -40,39 +41,43 @@ class TagFrames:
         If a transform fails to lookup, an error is printed,
         and the previous transform remains cached """
 
-        if (self.listener.frameExists("odom")
-                and self.listener.frameExists(tag_frame)):
-
-            try:
-                t = self.listener.getLatestCommonTime("odom", tag_frame)
-
+        try:
+            t = self.listener.getLatestCommonTime("odom", tag_frame)
+            if self.listener.canTransform("odom", tag_frame, t):
                 # get transform to make tag_frame (parent) & odom (child)
                 trans, rot = self.listener.lookupTransform(
-                        tag_frame, "odom", t)
+                    tag_frame, "odom", t)
 
-                #print trans, rot
+                # print trans, rot
                 self.translations[tag_frame] = trans
                 self.rotations[tag_frame] = rot
+                #print ("AR_broadcasted")
 
-            except (tf.ExtrapolationException,
-                    tf.LookupException,
-                    tf.ConnectivityException) as e:
-                print e
+        except (tf.ExtrapolationException,
+                tf.LookupException,
+                tf.ConnectivityException) as e:
+            pass
+            #print "error condition 2", e
 
     def broadcast_AR_odom_transform(self):
         """ Will broadcast the transform between parent node
         AR with odom as the direct child """
 
         try:
+            #print "broadcasting AR_odom transform"
+            #print "self.translations", self.translations
+            #print "self.rotations", self.rotations
+
             self.broadcaster.sendTransform(
-                    self.translations[self.first_tag],
-                    self.rotations[self.first_tag],
+                    self.translations[self.first_tag], # translation of first tag in list
+                    self.rotations[self.first_tag], # rotation of first tag in list
                     rospy.get_rostime(),
-                    "odom",
-                    "AR")
+                    "odom", #child
+                    "AR") #parent
 
         except (KeyError) as e:
-            print e
+            pass
+            #print e
 
     def update_tag_odom_transform(self, tag_frame):
         """ Will cache the transform that would make
@@ -80,24 +85,23 @@ class TagFrames:
         If tf fails to lookup the transform, the exception
         is printed, and the old transform remains cached """
 
-        if (self.listener.frameExists("odom")
-                and self.listener.frameExists(tag_frame)):
-
-            try:
-                t = self.listener.getLatestCommonTime("odom", tag_frame)
-
-                # get transform to make odom (parent) & tag_frame (child)
+        # if (self.listener.frameExists("odom")
+        #         and self.listener.frameExists(tag_frame)):
+        try:
+            t = self.listener.getLatestCommonTime("odom", tag_frame)
+            if self.listener.canTransform("odom", tag_frame, t):
                 trans, rot = self.listener.lookupTransform(
                         "odom", tag_frame, t)
 
-                print "UPDATING!", tag_frame, trans, rot
                 self.translations[tag_frame] = trans
                 self.rotations[tag_frame] = rot
 
-            except (tf.ExtrapolationException,
-                    tf.LookupException,
-                    tf.ConnectivityException) as e:
-                print e
+        except (tf.ExtrapolationException,
+                tf.LookupException,
+                tf.ConnectivityException) as e:
+            #print("error")
+            #print "error condition 1", e
+            pass
 
     def broadcast_tag_odom_transform(self, tag_frame):
         """ Will broadcast the transform between parent node
@@ -113,20 +117,22 @@ class TagFrames:
                     "odom")
 
         except (KeyError) as e:
-            print e
+            #print e
+            pass
 
     def run(self):
         """ The main run loop """
         r = rospy.Rate(10)
         tags_seen = set()
         while not rospy.is_shutdown():
-            tags_seen = tags_seen.union(set(self.tags_detected()))
-            print tags_seen
+            tags_seen = tags_seen.union(set(self.tags_detected())) # update the union of set of tags detected now and before
 
             if len(tags_seen) > 0:
                 if self.first_tag is None:
                     self.first_tag = list(tags_seen)[0]
+                    print "first_tag:", self.first_tag
 
+                # get transformation between odom and the first tag detected
                 self.update_AR_odom_transform(self.first_tag)
                 self.broadcast_AR_odom_transform()
 

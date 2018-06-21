@@ -17,14 +17,57 @@
 
     <!-- Describe the tags -->
     <rosparam param="tag_descriptions">[
-      {id: 0, size: 0.165},
-      {id: 1, size: 0.165},
-      {id: 2, size: 0.165},
-      {id: 3, size: 0.165},
-      {id: 4, size: 0.165},
-      {id: 13, size: 0.053}]
+      {id: 0, size: 0.168},
+      {id: 1, size: 0.168},
+      {id: 2, size: 0.168},
+      {id: 3, size: 0.168},
+      {id: 4, size: 0.168},
+      {id: 5, size: 0.168},
+      {id: 6, size: 0.168},
+      {id: 7, size: 0.168},
+      {id: 8, size: 0.168},
+      {id: 9, size: 0.168},
+      {id: 10, size: 0.168},
+      {id: 11, size: 0.168},
+      {id: 12, size: 0.168},
+      {id: 13, size: 0.168},
+      {id: 14, size: 0.168},
+      {id: 15, size: 0.168},
+      {id: 16, size: 0.168},
+      {id: 17, size: 0.168},
+      {id: 18, size: 0.168},
+      {id: 19, size: 0.168},
+      {id: 20, size: 0.168},
+      {id: 21, size: 0.168},
+      {id: 22, size: 0.168},
+      {id: 23, size: 0.168},
+      {id: 24, size: 0.168},
+      {id: 25, size: 0.168},
+      {id: 26, size: 0.168},
+      {id: 27, size: 0.168},
+      {id: 28, size: 0.168},
+      {id: 29, size: 0.168},
+      {id: 30, size: 0.168},
+      {id: 31, size: 0.168},
+      {id: 32, size: 0.168},
+      {id: 33, size: 0.168},
+      {id: 34, size: 0.168},
+      {id: 35, size: 0.168},
+      {id: 36, size: 0.168},
+      {id: 37, size: 0.168},
+      {id: 38, size: 0.168},
+      {id: 39, size: 0.168},
+      {id: 40, size: 0.168},
+      {id: 41, size: 0.168},
+      {id: 42, size: 0.168},
+      {id: 583, size: 0.168},
+      {id: 584, size: 0.168},
+      {id: 585, size: 0.168},
+      {id: 586, size: 0.168}]
     </rosparam>
   </node>
 
-  <node pkg="mobility_sensing" type="tag_frames.py" name="tag_frames"></node>
+  <node pkg="mobility_sensing" type="tag_frames.py" name="tag_frames" output="screen">
+
+  </node>
 </launch>
