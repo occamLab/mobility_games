@@ -40,24 +40,22 @@ class TagFrames:
         If a transform fails to lookup, an error is printed,
         and the previous transform remains cached """
 
-        if (self.listener.frameExists("odom")
-                and self.listener.frameExists(tag_frame)):
 
-            try:
-                t = self.listener.getLatestCommonTime("odom", tag_frame)
+        try:
+            t = self.listener.getLatestCommonTime("odom", tag_frame)
 
-                # get transform to make tag_frame (parent) & odom (child)
-                trans, rot = self.listener.lookupTransform(
-                        tag_frame, "odom", t)
+            # get transform to make tag_frame (parent) & odom (child)
+            trans, rot = self.listener.lookupTransform(
+                    tag_frame, "odom", t)
 
-                #print trans, rot
-                self.translations[tag_frame] = trans
-                self.rotations[tag_frame] = rot
+            #print trans, rot
+            self.translations[tag_frame] = trans
+            self.rotations[tag_frame] = rot
 
-            except (tf.ExtrapolationException,
-                    tf.LookupException,
-                    tf.ConnectivityException) as e:
-                print e
+        except (tf.ExtrapolationException,
+                tf.LookupException,
+                tf.ConnectivityException) as e:
+            print e
 
     def broadcast_AR_odom_transform(self):
         """ Will broadcast the transform between parent node
@@ -80,24 +78,21 @@ class TagFrames:
         If tf fails to lookup the transform, the exception
         is printed, and the old transform remains cached """
 
-        if (self.listener.frameExists("odom")
-                and self.listener.frameExists(tag_frame)):
+        try:
+            t = self.listener.getLatestCommonTime("odom", tag_frame)
 
-            try:
-                t = self.listener.getLatestCommonTime("odom", tag_frame)
+            # get transform to make odom (parent) & tag_frame (child)
+            trans, rot = self.listener.lookupTransform(
+                    "odom", tag_frame, t)
 
-                # get transform to make odom (parent) & tag_frame (child)
-                trans, rot = self.listener.lookupTransform(
-                        "odom", tag_frame, t)
+            print "UPDATING!", tag_frame, trans, rot
+            self.translations[tag_frame] = trans
+            self.rotations[tag_frame] = rot
 
-                print "UPDATING!", tag_frame, trans, rot
-                self.translations[tag_frame] = trans
-                self.rotations[tag_frame] = rot
-
-            except (tf.ExtrapolationException,
-                    tf.LookupException,
-                    tf.ConnectivityException) as e:
-                print e
+        except (tf.ExtrapolationException,
+                tf.LookupException,
+                tf.ConnectivityException) as e:
+            print e
 
     def broadcast_tag_odom_transform(self, tag_frame):
         """ Will broadcast the transform between parent node

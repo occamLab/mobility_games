@@ -6,7 +6,7 @@ from geometry_msgs.msg import PoseStamped
 from tf.transformations import euler_from_quaternion
 from apriltags_ros.msg import AprilTagDetectionArray
 import pyttsx
-import os
+import os 
 from rospkg import RosPack
 from dynamic_reconfigure.server import Server
 from mobility_games.cfg import MusicalCaneConfig
@@ -58,7 +58,7 @@ class AudioFeedback(object):
                 pw.Wav(os.path.join(self.sound_folder,
                        self.tag_to_music_file[tag_id]))
 
-        self.reward_sound_file = None
+            S.reward_sound_file = None
         self.reward_sound_object = None
 
         self.engine = pyttsx.init()

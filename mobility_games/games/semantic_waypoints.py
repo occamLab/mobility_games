@@ -58,13 +58,13 @@ class SemanticWayPoints(object):
                         self.tag_callback)
         rospy.Subscriber('/keyboard/keydown', Key, self.run_mode)
         srv = Server(SemanticWaypointsConfig, self.config_callback)
-    
+
     def config_callback(self, config, level):
         self.proximity_to_destination = config['proximity_to_destination']
         self.rewardSound = config['rewardSound']
         return config
-   
-    
+
+
     # FOR DEMO ONLY
     #   - Creates fake messages
     def create_test_messages(self):
@@ -76,14 +76,14 @@ class SemanticWayPoints(object):
     def process_pose(self, msg):       #    Onngoing function that updates current x, y, and yaw
         if self.tag_id:
             try:
-                self.listener.waitForTransform('odom', 
-                                               msg.header.frame_id, 
-                                               msg.header.stamp, 
+                self.listener.waitForTransform('odom',
+                                               msg.header.frame_id,
+                                               msg.header.stamp,
                                                rospy.Duration(0.5))
                 newitem = self.listener.transformPose('odom', msg)
                 self.x = newitem.pose.position.x
                 self.y = newitem.pose.position.y
-                
+
                 if self.translations:
                     self.distance_to_destination = math.sqrt((self.translations[0] - self.x)**2 + (self.translations[1] - self.y)**2)
                 angles = euler_from_quaternion([msg.pose.orientation.x,
@@ -121,7 +121,7 @@ class SemanticWayPoints(object):
         return text
 
     # Adds string labels to AR Tags
-    def calibrate_tag(self, tag_id):    
+    def calibrate_tag(self, tag_id):
         self.visited_tags_calibrate.append(tag_id)
         self.engine.say("Name the AR Tag!")
         tag_name = raw_input("Name the AR Tag: ")
@@ -180,7 +180,7 @@ class SemanticWayPoints(object):
                 print e
 
 
-    # Starts new game 
+    # Starts new game
     #   - Prompt user to enter destination
     #   - Restart timer
     #   - End game by typing 'done'
@@ -191,9 +191,9 @@ class SemanticWayPoints(object):
             confirm_msg = "Looking for %s" % search_tag_name
             self.engine.say(confirm_msg)
             self.tag_id = self.tag_name_to_id[search_tag_name]
-            
+
             self.update_destination_pose()
-           
+
             self.start_run = True
             self.start_time = time.time()
         elif search_tag_name == 'done':
@@ -211,7 +211,7 @@ class SemanticWayPoints(object):
         print confirm_msg
         self.engine.say(confirm_msg)
 
-        self.end_time = time.time()    
+        self.end_time = time.time()
         elapsed_time = self.end_time - self.start_time
         time_msg = "Took %s seconds!" % round(elapsed_time, 1)
         self.engine.say(time_msg)
@@ -228,18 +228,18 @@ class SemanticWayPoints(object):
         if self.calibration_mode:
             if msg.detections:
                 tag_id = msg.detections[0].id
-                
+
                 # Only prompt user to input tag name once
                 if not tag_id in self.visited_tags_calibrate:
                     self.calibrate_tag(tag_id)
 
-        # Identify april tags with given string names            
+        # Identify april tags with given string names
         else:
             if msg.detections:
                 tag_id = msg.detections[0].id
-                if (self.tag_id == tag_id  
-                    and self.start_run and self.distance_to_destination < self.proximity_to_destination): 
-                    
+                if (self.tag_id == tag_id
+                    and self.start_run and self.distance_to_destination < self.proximity_to_destination):
+
                     self.finish_run(tag_id)
 
     def run_mode(self, msg):
@@ -247,7 +247,7 @@ class SemanticWayPoints(object):
         if msg.code == 97:
             print "\nStarting Run Mode..."
             self.calibration_mode = False
-            self.start_new_game()         
+            self.start_new_game()
 
     def start_speech_engine(self):
         if not self.has_spoken:
@@ -263,7 +263,7 @@ class SemanticWayPoints(object):
         print("Searching for Tango...")
         self.start_speech_engine()
         while not rospy.is_shutdown():
-            
+
             if self.start_run and self.distance_to_destination > self.proximity_to_destination and self.x and self.y and self.translations:
                 self.update_destination_pose()
                 if not self.last_say_time or rospy.Time.now() - self.last_say_time > rospy.Duration(7.0):
@@ -272,7 +272,7 @@ class SemanticWayPoints(object):
                     speech = self.det_speech(self.yaw, (self.x, self.y), (self.translations[0], self.translations[1]))
                     self.engine.say(speech)
                     # print self.distance_to_destination
-    
+
                 if ((not self.last_play_time or
                     rospy.Time.now() - self.last_play_time > rospy.Duration(6.0/(1+math.exp(-self.distance_to_destination*.3))-2.8)) and
                     (not self.last_say_time or
