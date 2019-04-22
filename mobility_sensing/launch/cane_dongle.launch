@@ -1,0 +1,15 @@
+
+<launch>
+
+  <node pkg="dongle_driver" type="dongle_driver.py"
+    name="dongle_driver" output="screen">
+  </node>
+
+
+  <node pkg="mobility_sensing" type="dongle_sweeps.py"
+    name="dongle_cane_geometry" output="screen">
+      <param name="cane_length" value="1.1684" />
+  </node>
+
+
+</launch>
